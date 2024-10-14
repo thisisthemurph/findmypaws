@@ -31,6 +31,8 @@ func NewRouter(s *store.PostgresStore, logger *slog.Logger) *Router {
 
 func (r *Router) getRouteHandlers(s *store.PostgresStore, logger *slog.Logger) []RouteMaker {
 	return []RouteMaker{
+		NewAuthHandler(s, logger),
+		NewUserHandler(s, logger),
 		NewPetsHandler(s, logger),
 	}
 }

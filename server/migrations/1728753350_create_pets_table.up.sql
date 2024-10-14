@@ -1,15 +1,6 @@
-create extension if not exists "uuid-ossp";
-
-create or replace function fn_update_updated_at_timestamp()
-    returns trigger as $$
-begin
-    new.updated_at = current_timestamp;
-    return new;
-end;
-$$ language plpgsql;
-
 create table if not exists pets (
     id uuid primary key default uuid_generate_v4(),
+    user_id uuid references auth.users (id) on delete cascade,
     type varchar(16),
     name text not null,
     tags jsonb,

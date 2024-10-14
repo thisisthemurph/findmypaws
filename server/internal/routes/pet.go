@@ -18,15 +18,15 @@ func NewPetsHandler(s *store.PostgresStore, logger *slog.Logger) PetsHandler {
 	}
 }
 
+type PetsHandler struct {
+	PetStore store.PetStore
+	Logger   *slog.Logger
+}
+
 func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.GET("/pets/:id", h.GetPetByID())
 	g.POST("/pets", h.CreateNewPet())
 	g.PUT("/pets", h.UpdatePet())
-}
-
-type PetsHandler struct {
-	PetStore store.PetStore
-	Logger   *slog.Logger
 }
 
 type NewPetRequest struct {

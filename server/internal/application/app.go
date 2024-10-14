@@ -1,14 +1,15 @@
 package application
 
 import (
-	"github.com/jmoiron/sqlx"
-	"github.com/joho/godotenv"
 	"log/slog"
 	"os"
 	"paws/internal/routes"
 	"paws/internal/store"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/supabase-community/supabase-go"
 )
 
 type App struct {
@@ -54,7 +55,12 @@ func (app *App) configureStores() error {
 		return err
 	}
 
-	s := store.NewPostgresStore(db)
+	client, err := supabase.NewClient(app.Config.Supabase.URL, app.Config.Supabase.AnonKey, nil)
+	if err != nil {
+		return err
+	}
+
+	s := store.NewPostgresStore(db, client)
 	app.Store = s
 	return nil
 }
