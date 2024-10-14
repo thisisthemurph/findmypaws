@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgres:latest
+    container_name: paws-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: pawsdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - paws-data:/var/lib/postgresql/data
+
+volumes:
+  paws-data:
+    name: paws-data
