@@ -35,7 +35,12 @@ func (s PostgresPetStore) Pet(id uuid.UUID) (types.Pet, error) {
 }
 
 func (s PostgresPetStore) Pets(userID uuid.UUID) ([]types.Pet, error) {
-	return make([]types.Pet, 0), nil
+	stmt := `select * from pets where user_id = $1;`
+	var pp []types.Pet
+	if err := s.Get(pp, stmt, userID); err != nil {
+		return pp, err
+	}
+	return pp, nil
 }
 
 func (s PostgresPetStore) Create(p *types.Pet) error {

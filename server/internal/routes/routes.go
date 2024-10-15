@@ -21,7 +21,11 @@ func NewRouter(s *store.PostgresStore, logger *slog.Logger) *Router {
 	}
 
 	r.Validator = &CustomValidator{validator: validator.New()}
+
+	userMiddleware := NewUserMiddleware(s, logger)
 	baseGroup := r.Group("/api/v1")
+	baseGroup.Use(userMiddleware.WithUserInContext)
+
 	for _, h := range r.getRouteHandlers(s, logger) {
 		h.MakeRoutes(baseGroup)
 	}

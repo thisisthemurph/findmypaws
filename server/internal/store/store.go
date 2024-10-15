@@ -3,12 +3,18 @@ package store
 import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	sbauth "github.com/supabase-community/gotrue-go/types"
 	"github.com/supabase-community/supabase-go"
 	"paws/internal/types"
 )
 
+type AuthStore interface {
+	LogIn(email, password string) (sbauth.Session, error)
+	SignUp(email, password, name string) (uuid.UUID, error)
+	RefreshToken(token string) (sbauth.Session, error)
+}
+
 type UserStore interface {
-	SignUp(email, password, name string) (types.User, error)
 	User(id uuid.UUID) (types.User, error)
 	UserByEmail(email string) (types.User, error)
 }
@@ -21,13 +27,15 @@ type PetStore interface {
 }
 
 type PostgresStore struct {
+	AuthStore AuthStore
 	PetStore  PetStore
 	UserStore UserStore
 }
 
-func NewPostgresStore(db *sqlx.DB, sb *supabase.Client) *PostgresStore {
+func NewPostgresStore(db *sqlx.DB, sb *supabase.Client, jwtSecret string) *PostgresStore {
 	return &PostgresStore{
+		AuthStore: NewPostgresAuthStore(db, sb, jwtSecret),
+		UserStore: NewPostgresUserStore(db),
 		PetStore:  NewPostgresPetStore(db),
-		UserStore: NewPostgresUserStore(db, sb),
 	}
 }

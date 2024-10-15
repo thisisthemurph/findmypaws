@@ -60,7 +60,7 @@ func (app *App) configureStores() error {
 		return err
 	}
 
-	s := store.NewPostgresStore(db, client)
+	s := store.NewPostgresStore(db, client, app.Config.Supabase.JWTSecret)
 	app.Store = s
 	return nil
 }

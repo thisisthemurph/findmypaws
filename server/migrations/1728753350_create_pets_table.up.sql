@@ -1,6 +1,6 @@
 create table if not exists pets (
     id uuid primary key default uuid_generate_v4(),
-    user_id uuid references auth.users (id) on delete cascade,
+    user_id uuid references profiles (id) on delete cascade,
     type varchar(16),
     name text not null,
     tags jsonb,
