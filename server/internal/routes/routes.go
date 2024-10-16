@@ -49,7 +49,7 @@ func configureCORS(r *Router, clientBaseURL string) {
 	allowOrigins := []string{clientBaseURL}
 	r.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     allowOrigins,
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
 		AllowCredentials: true,
 	}))
