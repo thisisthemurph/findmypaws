@@ -12,14 +12,16 @@ type SupabaseConfig struct {
 }
 
 type AppConfig struct {
-	Host     string
-	Database DatabaseConfig
-	Supabase SupabaseConfig
+	Host          string
+	ClientBaseURL string
+	Database      DatabaseConfig
+	Supabase      SupabaseConfig
 }
 
 func NewAppConfig(get func(string) string) AppConfig {
 	return AppConfig{
-		Host: get("HOST"),
+		Host:          get("HOST"),
+		ClientBaseURL: get("CLIENT_BASE_URL"),
 		Database: DatabaseConfig{
 			ConnectionString: get("DATABASE_CONNECTION_STRING"),
 		},

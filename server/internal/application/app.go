@@ -42,7 +42,7 @@ func (app *App) Build() error {
 		return err
 	}
 
-	r := routes.NewRouter(app.Store, app.Logger)
+	r := routes.NewRouter(app.Store, app.Config.ClientBaseURL, app.Logger)
 	app.Router = r
 	return nil
 }
