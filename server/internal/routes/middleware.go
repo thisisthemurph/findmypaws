@@ -64,6 +64,7 @@ type UserClaims struct {
 
 type UserSession struct {
 	ID       uuid.UUID
+	Token    string
 	Email    string
 	Name     string
 	LoggedIn bool
@@ -78,8 +79,9 @@ func (m *UserMiddleware) WithUserInContext(next echo.HandlerFunc) echo.HandlerFu
 		if token == "" || !strings.HasPrefix(token, "Bearer ") {
 			return next(c)
 		}
+		token = token[7:]
 
-		jwtToken, err := jwt.ParseWithClaims(token[7:], &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
+		jwtToken, err := jwt.ParseWithClaims(token, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				logger.Debug("unexpected signing method when parsing JWT", "alg", token.Header["alg"])
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -104,6 +106,7 @@ func (m *UserMiddleware) WithUserInContext(next echo.HandlerFunc) echo.HandlerFu
 					ID:       userID,
 					Email:    claims.Email,
 					Name:     claims.UserMetadata.Name,
+					Token:    token,
 					LoggedIn: true,
 				}
 

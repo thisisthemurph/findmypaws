@@ -40,6 +40,10 @@ func (s *PostgresAuthStore) LogIn(email, password string) (sbauth.Session, error
 	return session, nil
 }
 
+func (s *PostgresAuthStore) LogOut(token string) error {
+	return s.Supabase.Auth.WithToken(token).Logout()
+}
+
 func (s *PostgresAuthStore) SignUp(email, password, name string) (uuid.UUID, error) {
 	// Step 1: Try to sign up or fetch the existing user.
 	user, existing, err := s.getOrSignupSupabaseUser(email, password, name)

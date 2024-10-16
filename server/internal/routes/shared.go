@@ -9,3 +9,5 @@ func CurrentUser(c echo.Context) UserSession {
 	}
 	return u
 }
+
+func CurrentSession(c echo.Context) {}

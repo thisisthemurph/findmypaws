@@ -12,6 +12,7 @@ type AuthStore interface {
 	LogIn(email, password string) (sbauth.Session, error)
 	SignUp(email, password, name string) (uuid.UUID, error)
 	RefreshToken(token string) (sbauth.Session, error)
+	LogOut(token string) error
 }
 
 type UserStore interface {
