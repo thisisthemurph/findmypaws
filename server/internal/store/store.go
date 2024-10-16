@@ -23,7 +23,8 @@ type PetStore interface {
 	Pet(id uuid.UUID) (types.Pet, error)
 	Pets(userID uuid.UUID) ([]types.Pet, error)
 	Create(p *types.Pet) error
-	Update(p *types.Pet) error
+	Update(p *types.Pet, userID uuid.UUID) error
+	Delete(id, userID uuid.UUID) error
 }
 
 type PostgresStore struct {

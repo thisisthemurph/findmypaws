@@ -35,9 +35,13 @@ func (s PostgresPetStore) Pet(id uuid.UUID) (types.Pet, error) {
 }
 
 func (s PostgresPetStore) Pets(userID uuid.UUID) ([]types.Pet, error) {
-	stmt := `select * from pets where user_id = $1;`
-	var pp []types.Pet
-	if err := s.Get(pp, stmt, userID); err != nil {
+	stmt := `
+		select id, name, tags, dob, created_at, updated_at, coalesce(type, $2) as type
+		from pets
+		where user_id = $1;`
+
+	pp := make([]types.Pet, 0)
+	if err := s.Select(&pp, stmt, userID, types.PetTypeUnknown); err != nil {
 		return pp, err
 	}
 	return pp, nil
@@ -45,27 +49,31 @@ func (s PostgresPetStore) Pets(userID uuid.UUID) ([]types.Pet, error) {
 
 func (s PostgresPetStore) Create(p *types.Pet) error {
 	stmt := `
-		insert into pets (name, tags, dob) 
-		values ($1, $2, $3) 
+		insert into pets (user_id, name, type, tags, dob) 
+		values ($1, $2, $3, $4, $5) 
 		returning id, created_at, updated_at;`
 
-	if err := s.Get(p, stmt, p.Name, p.Tags, p.DOB); err != nil {
+	if err := s.Get(p, stmt, p.UserID, p.Name, p.Type, p.Tags, p.DOB); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s PostgresPetStore) Update(p *types.Pet) error {
+func (s PostgresPetStore) Update(p *types.Pet, userID uuid.UUID) error {
 	stmt := `
-		update pets set
-			name = $1,
-		    tags = $2,
-		    dob = $3,
-		    type = $4
-		where id = $5
-		returning *, coalesce(type, $6) as type;`
+		update pets set name = $1, tags = $2, dob = $3, type = $4
+		where id = $5 and user_id = $6
+		returning *, coalesce(type, $7) as type;`
 
-	if err := s.Get(p, stmt, p.Name, p.Tags, p.DOB, p.Type, p.ID, types.PetTypeUnknown); err != nil {
+	if err := s.Get(p, stmt, p.Name, p.Tags, p.DOB, p.Type, p.ID, userID, types.PetTypeUnknown); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s PostgresPetStore) Delete(id, userID uuid.UUID) error {
+	stmt := `delete from pets where id = $1 and user_id = $2;`
+	if _, err := s.Exec(stmt, id, userID); err != nil {
 		return err
 	}
 	return nil

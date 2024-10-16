@@ -88,7 +88,7 @@ func (m *UserMiddleware) WithUserInContext(next echo.HandlerFunc) echo.HandlerFu
 		})
 
 		if err != nil {
-			logger.Error("error parsing claims from JWT", "error", err)
+			logger.Debug("error parsing claims from JWT", "error", err)
 			return next(c)
 		}
 

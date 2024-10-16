@@ -25,13 +25,10 @@ type PetsHandler struct {
 
 func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.GET("/pets/:id", h.GetPetByID())
+	g.GET("/pets", h.ListPets())
 	g.POST("/pets", h.CreateNewPet())
 	g.PUT("/pets", h.UpdatePet())
-}
-
-type NewPetRequest struct {
-	Name string        `json:"name" validate:"required"`
-	Tags types.PetTags `json:"tags"`
+	g.DELETE("/pets/:id", h.DeletePet())
 }
 
 func (h PetsHandler) GetPetByID() echo.HandlerFunc {
@@ -52,20 +49,49 @@ func (h PetsHandler) GetPetByID() echo.HandlerFunc {
 	}
 }
 
+func (h PetsHandler) ListPets() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user := CurrentUser(c)
+		if !user.LoggedIn {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+		pets, err := h.PetStore.Pets(user.ID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+		return c.JSON(http.StatusOK, pets)
+	}
+}
+
+type NewPetRequest struct {
+	Name string         `json:"name" validate:"required"`
+	Type *types.PetType `json:"type"`
+	Tags types.PetTags  `json:"tags"`
+	DOB  *time.Time     `json:"dob"`
+}
+
 func (h PetsHandler) CreateNewPet() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		user := CurrentUser(c)
+		if !user.LoggedIn {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+
 		var req NewPetRequest
 		if err := c.Bind(&req); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest)
 		}
 
 		pet := &types.Pet{
-			Name: req.Name,
-			Tags: req.Tags,
-			DOB:  nil,
+			UserID: user.ID,
+			Name:   req.Name,
+			Type:   req.Type,
+			Tags:   req.Tags,
+			DOB:    req.DOB,
 		}
 
 		if err := h.PetStore.Create(pet); err != nil {
+			h.Logger.Error("error creating pet", "error", err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.JSON(http.StatusCreated, pet)
@@ -82,6 +108,11 @@ type UpdatePetRequest struct {
 
 func (h PetsHandler) UpdatePet() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		user := CurrentUser(c)
+		if !user.LoggedIn {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+
 		var req UpdatePetRequest
 		if err := c.Bind(&req); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest)
@@ -95,9 +126,28 @@ func (h PetsHandler) UpdatePet() echo.HandlerFunc {
 			DOB:  req.DOB,
 		}
 
-		if err := h.PetStore.Update(pet); err != nil {
+		if err := h.PetStore.Update(pet, user.ID); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.JSON(http.StatusOK, pet)
+	}
+}
+
+func (h PetsHandler) DeletePet() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user := CurrentUser(c)
+		if !user.LoggedIn {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+
+		petID, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+
+		if err := h.PetStore.Delete(petID, user.ID); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+		return c.NoContent(http.StatusNoContent)
 	}
 }
