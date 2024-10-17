@@ -39,16 +39,21 @@ export interface SessionUserMetadata {
   sub: string;
 }
 
-export interface LoginParams {
+export interface LogInParams {
   email: string;
   password: string;
+}
+
+export interface SignUpParams extends LogInParams {
+  username: string;
 }
 
 export interface AuthContextProps {
   loggedIn: boolean;
   user: User | null;
   loading: boolean;
-  login: (params: LoginParams) => Promise<void>;
+  signup: (params: SignUpParams) => Promise<void>;
+  login: (params: LogInParams) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -164,7 +169,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => clearTimeout(timeoutId);
   }, [session, logout]);
 
-  const login = async (credentials: LoginParams) => {
+  const login = async (credentials: LogInParams) => {
     setLoading(true);
     const endpoint = `${import.meta.env.VITE_API_BASE_URL}/auth/login`;
 
@@ -197,8 +202,34 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const signup = async (values: SignUpParams) => {
+    setLoading(true);
+    const endpoint = `${import.meta.env.VITE_API_BASE_URL}/auth/signup`;
+
+    try {
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      });
+
+      if (!resp.ok) {
+        const errorBody = await resp.json();
+        const message =
+          errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
+        throw new ApiError(resp.status, resp.statusText, message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ loggedIn, user, loading, login, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ loggedIn, user, loading, signup, login, logout }}>
+      {children}
+    </AuthContext.Provider>
   );
 };
 
