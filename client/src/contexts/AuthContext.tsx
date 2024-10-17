@@ -195,8 +195,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setSession(session);
-    } catch (error) {
-      console.error("login error", error);
     } finally {
       setLoading(false);
     }

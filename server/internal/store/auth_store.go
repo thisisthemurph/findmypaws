@@ -13,6 +13,10 @@ import (
 	"paws/internal/types"
 )
 
+var (
+	ErrInvalidCredentials error = errors.New("invalid credentials")
+)
+
 type PostgresAuthStore struct {
 	*sqlx.DB
 	Supabase  *supabase.Client
@@ -35,6 +39,11 @@ func NewPostgresAuthStore(
 func (s *PostgresAuthStore) LogIn(email, password string) (sbauth.Session, error) {
 	session, err := s.Supabase.SignInWithEmailPassword(email, password)
 	if err != nil {
+		if sbErr, ok := NewSupabaseAuthError(err); ok {
+			if sbErr.ErrorName == "invalid_grant" {
+				return sbauth.Session{}, ErrInvalidCredentials
+			}
+		}
 		return sbauth.Session{}, err
 	}
 	return session, nil

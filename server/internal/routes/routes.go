@@ -1,11 +1,12 @@
 package routes
 
 import (
+	"log/slog"
+	"net/http"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"log/slog"
-	"net/http"
 	"paws/internal/store"
 )
 
@@ -18,26 +19,25 @@ type Router struct {
 }
 
 func NewRouter(s *store.PostgresStore, clientBaseURL string, logger *slog.Logger) *Router {
-	r := &Router{
-		Echo: echo.New(),
-	}
-
-	r.Validator = &CustomValidator{validator: validator.New()}
+	e := echo.New()
+	e.Validator = NewCustomValidator()
 
 	userMiddleware := NewUserMiddleware(s, logger)
-	baseGroup := r.Group("/api/v1")
+	baseGroup := e.Group("/api/v1")
 	baseGroup.Use(userMiddleware.WithUserInContext)
 
-	for _, h := range r.getRouteHandlers(s, logger) {
+	for _, h := range getRouteHandlers(s, logger) {
 		h.MakeRoutes(baseGroup)
 	}
 
-	configureCORS(r, clientBaseURL)
+	configureCORS(e, clientBaseURL)
 
-	return r
+	return &Router{
+		Echo: e,
+	}
 }
 
-func (r *Router) getRouteHandlers(s *store.PostgresStore, logger *slog.Logger) []RouteMaker {
+func getRouteHandlers(s *store.PostgresStore, logger *slog.Logger) []RouteMaker {
 	return []RouteMaker{
 		NewAuthHandler(s, logger),
 		NewUserHandler(s, logger),
@@ -45,9 +45,9 @@ func (r *Router) getRouteHandlers(s *store.PostgresStore, logger *slog.Logger) [
 	}
 }
 
-func configureCORS(r *Router, clientBaseURL string) {
+func configureCORS(e *echo.Echo, clientBaseURL string) {
 	allowOrigins := []string{clientBaseURL}
-	r.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     allowOrigins,
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
@@ -55,10 +55,14 @@ func configureCORS(r *Router, clientBaseURL string) {
 	}))
 }
 
-type CustomValidator struct {
+type RequestValidator struct {
 	validator *validator.Validate
 }
 
-func (cv *CustomValidator) Validate(i interface{}) error {
+func NewCustomValidator() *RequestValidator {
+	return &RequestValidator{validator: validator.New()}
+}
+
+func (cv *RequestValidator) Validate(i interface{}) error {
 	return cv.validator.Struct(i)
 }

@@ -7,6 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useAuth } from "@/hooks/useAuth.tsx";
+import { useToast } from "@/hooks/use-toast.ts";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
@@ -17,6 +18,7 @@ type LoginFormInputs = z.infer<typeof loginSchema>;
 
 function LogInForm() {
   const { login } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const form = useForm<LoginFormInputs>({
     resolver: zodResolver(loginSchema),
@@ -31,7 +33,11 @@ function LogInForm() {
       await login(credentials);
       navigate("/");
     } catch (error: any) {
-      alert(error?.message || error);
+      toast({
+        title: "Something went wrong",
+        description: error?.message || "There has been an unexpected error.",
+        variant: "destructive",
+      });
     }
   }
 
