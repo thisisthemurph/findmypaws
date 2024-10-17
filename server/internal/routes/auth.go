@@ -63,6 +63,12 @@ func (h *AuthHandler) HandleLogOut() echo.HandlerFunc {
 	}
 }
 
+type SignUpRequest struct {
+	Name     string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 func (h *AuthHandler) HandleSignUp() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req SignUpRequest
@@ -70,12 +76,12 @@ func (h *AuthHandler) HandleSignUp() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest)
 		}
 
-		user, err := h.AuthStore.SignUp(req.Email, req.Password, req.Name)
+		_, err := h.AuthStore.SignUp(req.Email, req.Password, req.Name)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, err)
 		}
 
-		return c.JSON(http.StatusOK, user)
+		return c.NoContent(http.StatusCreated)
 	}
 }
 
