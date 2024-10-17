@@ -1,10 +1,13 @@
 import { Outlet } from "react-router-dom";
 import Navigation from "../components/Navigation.tsx";
+import {NavigationProvider} from "../contexts/NavigationContext.tsx";
 
 function Root() {
   return (
     <>
-      <Navigation />
+      <NavigationProvider>
+        <Navigation />
+      </NavigationProvider>
       <main>
         <Outlet/>
       </main>

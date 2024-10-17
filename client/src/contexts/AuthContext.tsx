@@ -1,6 +1,56 @@
-import {createContext, ReactNode, useCallback, useEffect, useState} from "react";
+import { createContext, ReactNode, useCallback, useEffect, useState } from "react";
 import { ApiError } from "../api/error.ts";
-import { AuthContextProps, LoginParams, Session, User } from "./authContextProps.ts";
+
+const SESSION_STORE_KEY = "session";
+
+export interface Session {
+  access_token: string;
+  expires_at: number;
+  expires_in: number;
+  refresh_token: string;
+  token_type: string;
+  user: SessionUser;
+}
+
+export interface SessionUser {
+  app_metadata: string;
+  aud: string;
+  confirmed_at: string;
+  created_at: string;
+  email: string;
+  email_confirmed_at: string;
+  id: string;
+  last_sign_in_at: string;
+  role: string;
+  updated_at: string;
+  user_metadata: SessionUserMetadata;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export interface SessionUserMetadata {
+  email: string;
+  email_verified: boolean;
+  name: string;
+  sub: string;
+}
+
+export interface LoginParams {
+  email: string;
+  password: string;
+}
+
+export interface AuthContextProps {
+  loggedIn: boolean;
+  user: User | null;
+  loading: boolean;
+  login: (params: LoginParams) => Promise<void>;
+  logout: () => Promise<void>;
+}
 
 const userFromSession = (session: Session): User | null => {
   if (!session) return null;
@@ -8,10 +58,8 @@ const userFromSession = (session: Session): User | null => {
     id: session.user.id,
     email: session.user.email,
     name: session.user.user_metadata.name ?? "unknown",
-  }
-}
-
-const SESSION_STORE_KEY = "session";
+  };
+};
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
@@ -37,14 +85,15 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       const resp = await fetch(endpoint, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
           "Content-Type": "application/json",
         },
       });
 
       if (!resp.ok) {
         const errorBody = await resp.json();
-        const message = errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
+        const message =
+          errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
         throw new ApiError(resp.status, resp.statusText, message);
       }
     } catch (error) {
@@ -53,7 +102,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(null);
       setLoading(false);
     }
-  }, [session?.access_token])
+  }, [session?.access_token]);
 
   useEffect(() => {
     if (session) {
@@ -76,14 +125,15 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         const resp = await fetch(endpoint, {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${session?.access_token}`,
+            Authorization: `Bearer ${session?.access_token}`,
             "Content-Type": "application/json",
           },
         });
 
         if (!resp.ok) {
           const errorBody = await resp.json();
-          const message = errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
+          const message =
+            errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
           throw new ApiError(resp.status, resp.statusText, message);
         }
 
@@ -96,7 +146,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error("refresh error", error);
       }
-    }
+    };
 
     if (!session) return;
     const TOKEN_REFRESH_THRESHOLD = 5 * 60; // Refresh 5 minutes before expiration
@@ -104,7 +154,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Log out if the token is already expired.
     if (session.expires_at <= currentTime) {
-      logout().catch(err => console.error(err));
+      logout().catch((err) => console.error(err));
       return;
     }
 
@@ -129,7 +179,8 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (!resp.ok) {
         const errorBody = await resp.json();
-        const message = errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
+        const message =
+          errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
         throw new ApiError(resp.status, resp.statusText, message);
       }
 
@@ -144,13 +195,11 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
-    <AuthContext.Provider value={{ loggedIn, user, loading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  )
-}
+    <AuthContext.Provider value={{ loggedIn, user, loading, login, logout }}>{children}</AuthContext.Provider>
+  );
+};
 
-export { AuthContext, AuthProvider }
+export { AuthContext, AuthProvider };

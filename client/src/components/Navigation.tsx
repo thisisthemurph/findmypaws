@@ -1,31 +1,65 @@
-import {Link, useNavigate} from "react-router-dom";
-import {useAuth} from "../hooks/useAuth.tsx";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth.tsx";
+import { ReactNode } from "react";
+import { useNavigation } from "../hooks/useNavigation.tsx";
 
 function Navigation() {
+  const [navOpen, setNavOpen] = useNavigation();
   const { loggedIn, logout } = useAuth();
   const navigate = useNavigate();
 
-  function handleLogout() {
-    logout().then(() => {
-      navigate("/");
-    }).catch((e) => {
-      console.error(e);
-      alert("Could not log out");
-    });
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      setNavOpen(false);
+      navigate("/login");
+    }
   }
 
   return (
-    <nav className="p-4 bg-purple-300 shadow mb-4">
-      <h1 className="text-2xl">Find my paws</h1>
-      <ul className="flex gap-4">
-        <li><Link to="/">Home</Link></li>
-        <li><Link to="/profile">Pet Profile</Link></li>
-        {!loggedIn && <li><Link to="/login">Log in</Link></li>}
-        {!loggedIn && <li><Link to="/signup">Sign up</Link></li>}
-        {loggedIn && <button onClick={handleLogout}>Log out</button>}
+    <nav className="flex flex-col md:p-4 md:flex-row md:justify-between md:items-center shadow mb-4">
+      <section className="p-4 md:p-0 flex justify-between">
+        <h1 className="text-2xl text-purple-700">Findmypaws</h1>
+        <button className="md:hidden" onClick={() => setNavOpen(!navOpen)}>
+          {navOpen ? "close" : "open"}
+        </button>
+      </section>
+      <ul
+        className={`${navOpen ? "block" : "hidden"} md:flex px-4 md:px-0 pb-4 md:pb-0 flex flex-col items-center md:flex-row`}
+      >
+        <NavLink to="/">Home</NavLink>
+        <NavLink to="/profile">Pet Profile</NavLink>
+        {!loggedIn && <NavLink to="/login">Log in</NavLink>}
+        {!loggedIn && <NavLink to="/signup">Sign up</NavLink>}
+        {loggedIn && (
+          <li className="w-full md:w-auto">
+            <button
+              onClick={handleLogout}
+              className="block w-full p-4 text-center text-2xl md:text-xl rounded-md hover:bg-purple-200 hover:text-purple-700 transition-colors"
+            >
+              Log out
+            </button>
+          </li>
+        )}
       </ul>
     </nav>
-  )
+  );
+}
+
+function NavLink({ children, to }: { children: ReactNode; to: string }) {
+  const [, setNavOpen] = useNavigation();
+  return (
+    <li className="w-full md:w-auto">
+      <Link
+        onClick={() => setNavOpen(false)}
+        className="inline-block w-full p-4 text-center text-2xl md:text-xl rounded-md hover:bg-purple-200 hover:text-purple-700 transition-colors"
+        to={to}
+      >
+        {children}
+      </Link>
+    </li>
+  );
 }
 
 export default Navigation;
