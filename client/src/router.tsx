@@ -3,7 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import Root from "./pages/Root.tsx";
 import PetProfile from "./pages/PetProfile.tsx";
 import Home from "./pages/Home.tsx";
-import LogIn from "./pages/auth/LogIn.tsx";
+import LogInPage from "./pages/auth/LogInPage.tsx";
 
 export const router = createBrowserRouter([
   {
@@ -12,16 +12,16 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/",
-        element: <Home />
+        element: <Home />,
       },
       {
         path: "/login",
-        element: <LogIn />
+        element: <LogInPage />,
       },
       {
         path: "/profile/:id",
         element: <PetProfile />,
-      }
+      },
     ],
-  }
+  },
 ]);
