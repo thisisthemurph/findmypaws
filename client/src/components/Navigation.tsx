@@ -29,7 +29,7 @@ function Navigation() {
         className={`${navOpen ? "block" : "hidden"} md:flex px-4 md:px-0 pb-4 md:pb-0 flex flex-col items-center md:flex-row`}
       >
         <NavLink to="/">Home</NavLink>
-        <NavLink to="/profile">Pet Profile</NavLink>
+        {loggedIn && <NavLink to="/profile">Profile</NavLink>}
         {!loggedIn && <NavLink to="/login">Log in</NavLink>}
         {!loggedIn && <NavLink to="/signup">Sign up</NavLink>}
         {loggedIn && (
