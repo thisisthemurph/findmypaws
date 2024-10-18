@@ -167,6 +167,9 @@ func (h PetsHandler) AddTag() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
+		if pet.Tags == nil {
+			pet.Tags = make(types.PetTags)
+		}
 		pet.Tags[req.Key] = req.Value
 		if err := h.PetStore.Update(&pet, user.ID); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
