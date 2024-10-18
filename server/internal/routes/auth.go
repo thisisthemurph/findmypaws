@@ -102,6 +102,7 @@ func (h *AuthHandler) HandleRefreshToken() echo.HandlerFunc {
 
 		session, err := h.AuthStore.RefreshToken(token)
 		if err != nil {
+			h.Logger.Error("error refreshing token", "error", err)
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
 		return c.JSON(http.StatusOK, session)

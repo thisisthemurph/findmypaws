@@ -126,7 +126,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         const resp = await fetch(endpoint, {
           method: "POST",
           headers: {
-            "X-Refresh-Token": `Bearer ${session?.refresh_token}`,
+            "X-Refresh-Token": session?.refresh_token ?? "",
           },
         });
 
