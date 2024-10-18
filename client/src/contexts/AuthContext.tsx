@@ -49,13 +49,12 @@ export interface SignUpParams extends LogInParams {
 }
 
 export interface AuthContextProps {
-  loggedIn: boolean;
   user: User | null;
   session: Session | null;
-  loading: boolean;
   signup: (params: SignUpParams) => Promise<void>;
   login: (params: LogInParams) => Promise<void>;
   logout: () => Promise<void>;
+  isAuthenticated: () => boolean;
 }
 
 const userFromSession = (session: Session): User | null => {
@@ -70,8 +69,6 @@ const userFromSession = (session: Session): User | null => {
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [loading, setLoading] = useState<boolean>(false);
-  const [loggedIn, setLoggedIn] = useState<boolean>(false);
   const [session, setSession] = useState<Session | null>(() => {
     const storedSession = localStorage.getItem(SESSION_STORE_KEY);
     return storedSession ? JSON.parse(storedSession) : null;
@@ -83,9 +80,12 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     return userFromSession(session);
   });
 
-  const logout = useCallback(async () => {
-    setLoading(true);
+  const sessionHasExpired = useCallback((): boolean => {
+    const currentTime = Math.floor(Date.now() / 1000);
+    return !session || session.expires_at <= currentTime;
+  }, [session]);
 
+  const logout = useCallback(async () => {
     try {
       const endpoint = `${import.meta.env.VITE_API_BASE_URL}/auth/logout`;
       const resp = await fetch(endpoint, {
@@ -102,21 +102,16 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
           errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
         throw new ApiError(resp.status, resp.statusText, message);
       }
-    } catch (error) {
-      console.error("logout error", error);
     } finally {
       setSession(null);
-      setLoading(false);
     }
   }, [session?.access_token]);
 
   useEffect(() => {
     if (session) {
-      setLoggedIn(true);
       setUser(userFromSession(session));
       localStorage.setItem(SESSION_STORE_KEY, JSON.stringify(session));
     } else {
-      setLoggedIn(false);
       setUser(null);
       localStorage.removeItem(SESSION_STORE_KEY);
     }
@@ -158,7 +153,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     const currentTime = Math.floor(Date.now() / 1000);
 
     // Log out if the token is already expired.
-    if (session.expires_at <= currentTime) {
+    if (sessionHasExpired()) {
       logout().catch((err) => console.error(err));
       return;
     }
@@ -167,65 +162,64 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     const timeoutId = setTimeout(refreshToken, (refreshTime - currentTime) * 1000);
 
     return () => clearTimeout(timeoutId);
-  }, [session, logout]);
+  }, [session, logout, sessionHasExpired]);
 
   const login = async (credentials: LogInParams) => {
-    setLoading(true);
     const endpoint = `${import.meta.env.VITE_API_BASE_URL}/auth/login`;
 
-    try {
-      const resp = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(credentials),
-      });
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(credentials),
+    });
 
-      if (!resp.ok) {
-        const errorBody = await resp.json();
-        const message =
-          errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
-        throw new ApiError(resp.status, resp.statusText, message);
-      }
-
-      const session: Session = await resp.json();
-      if (!session?.access_token || !session?.refresh_token || !session?.user) {
-        throw new Error("Invalid session data");
-      }
-
-      setSession(session);
-    } finally {
-      setLoading(false);
+    if (!resp.ok) {
+      const errorBody = await resp.json();
+      const message =
+        errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
+      throw new ApiError(resp.status, resp.statusText, message);
     }
+
+    const session: Session = await resp.json();
+    if (!session?.access_token || !session?.refresh_token || !session?.user) {
+      throw new Error("Invalid session data");
+    }
+
+    setSession(session);
   };
 
   const signup = async (values: SignUpParams) => {
-    setLoading(true);
     const endpoint = `${import.meta.env.VITE_API_BASE_URL}/auth/signup`;
 
-    try {
-      const resp = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
-      });
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(values),
+    });
 
-      if (!resp.ok) {
-        const errorBody = await resp.json();
-        const message =
-          errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
-        throw new ApiError(resp.status, resp.statusText, message);
-      }
-    } finally {
-      setLoading(false);
+    if (!resp.ok) {
+      const errorBody = await resp.json();
+      const message =
+        errorBody?.message || `Error making request. Status: ${resp.status}, ${resp.statusText}`;
+      throw new ApiError(resp.status, resp.statusText, message);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ loggedIn, user, session, loading, signup, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated: () => !sessionHasExpired(),
+        user,
+        session,
+        signup,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

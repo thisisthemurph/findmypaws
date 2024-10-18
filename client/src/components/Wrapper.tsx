@@ -1,9 +1,10 @@
-import {ReactNode} from "react";
+import { HTMLAttributes } from "react";
+import { cn } from "@/lib/utils.ts";
 
-export const Wrapper = ({children}: { children: ReactNode }) => {
+export const Wrapper = ({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) => {
   return (
-    <section className="p-4">
-      { children }
-    </section>
-  )
-}
+    <div className={cn("p-4", className)} {...props}>
+      {children}
+    </div>
+  );
+};

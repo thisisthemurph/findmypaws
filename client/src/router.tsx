@@ -5,6 +5,8 @@ import Home from "@/pages/Home.tsx";
 import LogInPage from "@/pages/auth/LogInPage.tsx";
 import SignUpPage from "@/pages/auth/SignUpPage.tsx";
 import ProfilePage from "@/pages/profile";
+import ProtectedRoute from "@/contexts/ProtectedRoute.tsx";
+import PetPage from "@/pages/pet";
 
 export const router = createBrowserRouter([
   {
@@ -25,7 +27,22 @@ export const router = createBrowserRouter([
       },
       {
         path: "/profile",
-        element: <ProfilePage />,
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: "/profile",
+            element: <ProfilePage />,
+          },
+        ],
+      },
+      {
+        path: "/pet",
+        children: [
+          {
+            path: "/pet/:id",
+            element: <PetPage />,
+          },
+        ],
       },
     ],
   },
