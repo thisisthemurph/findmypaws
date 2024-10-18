@@ -1,15 +1,32 @@
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pet } from "@/api/types.ts";
 import { useAuth } from "@/hooks/useAuth.tsx";
 import { Wrapper } from "@/components/Wrapper.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import NewTagDialog from "@/pages/pet/NewTagDialog.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx";
+import { useToast } from "@/hooks/use-toast.ts";
+
+async function deleteTag(petId: string, key: string, token: string) {
+  return fetch(`${import.meta.env.VITE_API_BASE_URL}/pets/${petId}/tag/${key}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  }).then((res) => res.json());
+}
 
 function PetPage() {
   const { id } = useParams();
   const { session } = useAuth();
+  const { toast } = useToast();
 
   const {
     isPending,
@@ -22,6 +39,25 @@ function PetPage() {
         method: "GET",
         headers: { Authorization: `Bearer ${session?.access_token}` },
       }).then((res) => res.json()),
+  });
+
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (key: string) => deleteTag(pet?.id ?? "", key, session?.access_token ?? ""),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ["pet"] });
+      toast({
+        title: "Deleted",
+        description: "You have deleted the tag!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Something went wrong",
+        description: "There has been an issue adding a tag for your pet.",
+        variant: "destructive",
+      });
+    },
   });
 
   if (error) {
@@ -45,9 +81,14 @@ function PetPage() {
       <section className="flex justify-center gap-2">
         <div className="flex flex-wrap justify-center gap-2">
           {Object.entries(pet.tags ?? {}).map(([key, value]) => (
-            <Badge key={key} title={`tag type: ${key}`} variant="outline" size="lg">
-              {value}
-            </Badge>
+            <PetBadge
+              key={key}
+              tagKey={key}
+              tagValue={value}
+              handleDelete={(key) => {
+                mutation.mutate(key);
+              }}
+            />
           ))}
           {Object.entries(pet.tags ?? {}).length > 0 && (
             <NewTagDialog pet={pet}>
@@ -77,6 +118,31 @@ function PetPage() {
         )}
       </section>
     </Wrapper>
+  );
+}
+
+function PetBadge({
+  tagKey,
+  tagValue,
+  handleDelete,
+}: {
+  tagKey: string;
+  tagValue: string;
+  handleDelete: (key: string) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger>
+        <Badge key={tagKey} title={`tag type: ${tagKey}`} variant="outline" size="lg">
+          {tagValue}
+        </Badge>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuLabel>Tag actions</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleDelete(tagKey)}>Delete</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

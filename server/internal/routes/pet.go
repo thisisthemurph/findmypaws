@@ -29,6 +29,7 @@ func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.POST("/pets", h.CreateNewPet())
 	g.PUT("/pets", h.UpdatePet())
 	g.POST("/pets/:id/tag", h.AddTag())
+	g.DELETE("/pets/:id/tag/:key", h.DeleteTag())
 	g.DELETE("/pets/:id", h.DeletePet())
 }
 
@@ -171,6 +172,38 @@ func (h PetsHandler) AddTag() echo.HandlerFunc {
 			pet.Tags = make(types.PetTags)
 		}
 		pet.Tags[req.Key] = req.Value
+		if err := h.PetStore.Update(&pet, user.ID); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+		return c.JSON(http.StatusOK, pet)
+	}
+}
+
+func (h PetsHandler) DeleteTag() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user := CurrentUser(c)
+		if !user.LoggedIn {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+
+		petID, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+		tagKey := c.Param("key")
+
+		pet, err := h.PetStore.Pet(petID)
+		if err != nil {
+			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+				return echo.NewHTTPError(http.StatusNotFound, err)
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		if pet.Tags == nil {
+			pet.Tags = make(types.PetTags)
+		}
+		delete(pet.Tags, tagKey)
 		if err := h.PetStore.Update(&pet, user.ID); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
