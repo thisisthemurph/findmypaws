@@ -51,6 +51,7 @@ export interface SignUpParams extends LogInParams {
 export interface AuthContextProps {
   loggedIn: boolean;
   user: User | null;
+  session: Session | null;
   loading: boolean;
   signup: (params: SignUpParams) => Promise<void>;
   login: (params: LogInParams) => Promise<void>;
@@ -130,8 +131,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         const resp = await fetch(endpoint, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            "Content-Type": "application/json",
+            "X-Refresh-Token": `Bearer ${session?.refresh_token}`,
           },
         });
 
@@ -225,7 +225,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ loggedIn, user, loading, signup, login, logout }}>
+    <AuthContext.Provider value={{ loggedIn, user, session, loading, signup, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
