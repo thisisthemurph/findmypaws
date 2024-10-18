@@ -34,6 +34,9 @@ func (t PetTags) Value() (driver.Value, error) {
 }
 
 func (t *PetTags) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
 	bytes, ok := value.([]byte)
 	if !ok {
 		return errors.New("failed to scan PetTag")
