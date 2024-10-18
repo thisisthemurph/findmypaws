@@ -15,7 +15,7 @@ function PetCard({ pet }: PetCardProps) {
       <CardContent>
         <p>This is only an example!</p>
       </CardContent>
-      {Object.entries(pet.tags).length > 0 && (
+      {pet.tags && Object.entries(pet.tags).length > 0 && (
         <CardFooter className="flex gap-1">
           {Object.entries(pet.tags).map(([k, v]) => (
             <Badge variant="outline" key={k}>

@@ -6,6 +6,9 @@ import { Input } from "@/components/ui/input.tsx";
 import { useToast } from "@/hooks/use-toast.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select.tsx";
+import { useAuth } from "@/hooks/useAuth.tsx";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Pet } from "@/api/types.ts";
 
 const newPetFormSchema = z.object({
   name: z.string().min(1, "The name of your pet is required"),
@@ -18,7 +21,23 @@ interface NewPetFormProps {
   onFormComplete: () => void;
 }
 
+async function createPet(pet: NewPetFormInputs, token: string) {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pets`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(pet),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to create new pet");
+  }
+  return response.json();
+}
+
 function NewPetForm({ onFormComplete }: NewPetFormProps) {
+  const { session } = useAuth();
   const { toast } = useToast();
   const form = useForm<NewPetFormInputs>({
     resolver: zodResolver(newPetFormSchema),
@@ -28,14 +47,35 @@ function NewPetForm({ onFormComplete }: NewPetFormProps) {
     },
   });
 
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (newPet: NewPetFormInputs) => {
+      return createPet(newPet, session?.access_token ?? "");
+    },
+    onSuccess: (created: Pet) => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      toast({
+        title: "Success",
+        description:
+          created.type !== "Unspecified"
+            ? `Your ${created.type.toLocaleLowerCase()} ${created.name} has been added!`
+            : `${created.name} has been added!`,
+        variant: "default",
+      });
+      onFormComplete();
+    },
+    onError: () => {
+      toast({
+        title: "Something went wrong",
+        description: "There has been an issue adding your pet.",
+        variant: "destructive",
+      });
+    },
+  });
+
   async function onSubmit(values: NewPetFormInputs) {
-    console.table([values]);
-    toast({
-      title: "Success",
-      description: `You had added ${values.name} to your list of pets.`,
-      variant: "default",
-    });
-    onFormComplete();
+    mutation.mutate(values);
   }
 
   return (

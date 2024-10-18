@@ -25,7 +25,11 @@ function ProfilePage() {
       fetch(`${import.meta.env.VITE_API_BASE_URL}/pets`, {
         method: "GET",
         headers: { Authorization: `Bearer ${session?.access_token}` },
-      }).then((res) => res.json()),
+      }).then((res) => {
+        const data = res.json();
+        console.log(data);
+        return data;
+      }),
   });
 
   return (
