@@ -34,7 +34,7 @@ function ProfilePage() {
 
   return (
     <Wrapper>
-      <p className="text-2xl font-semibold mb-6">Welcome back {user?.name}!</p>
+      <h1>Welcome back {user?.name}!</h1>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
           <Button variant="outline">Add a new pet</Button>
@@ -47,10 +47,12 @@ function ProfilePage() {
           <NewPetForm onFormComplete={() => setIsOpen(false)} />
         </DialogContent>
       </Dialog>
-      <section className="mt-6 space-y-4">
+      <section className="mt-6">
         <h2>Your pets</h2>
-        {isPending && <p>Walking your pets</p>}
-        {data && data.map((pet) => <PetCard key={pet.id} pet={pet} />)}
+        <div className="flex flex-col gap-4">
+          {isPending && <p>Walking your pets</p>}
+          {data && data.map((pet) => <PetCard key={pet.id} pet={pet} />)}
+        </div>
       </section>
     </Wrapper>
   );
