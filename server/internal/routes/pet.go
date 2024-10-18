@@ -28,6 +28,7 @@ func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.GET("/pets", h.ListPets())
 	g.POST("/pets", h.CreateNewPet())
 	g.PUT("/pets", h.UpdatePet())
+	g.POST("/pets/:id/tag", h.AddTag())
 	g.DELETE("/pets/:id", h.DeletePet())
 }
 
@@ -127,6 +128,47 @@ func (h PetsHandler) UpdatePet() echo.HandlerFunc {
 		}
 
 		if err := h.PetStore.Update(pet, user.ID); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+		return c.JSON(http.StatusOK, pet)
+	}
+}
+
+type NewTagRequest struct {
+	Key   string `json:"key" validate:"required"`
+	Value string `json:"value" validate:"required"`
+}
+
+func (h PetsHandler) AddTag() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user := CurrentUser(c)
+		if !user.LoggedIn {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+
+		petID, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+
+		var req NewTagRequest
+		if err := c.Bind(&req); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		if err := c.Validate(req); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+
+		pet, err := h.PetStore.Pet(petID)
+		if err != nil {
+			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+				return echo.NewHTTPError(http.StatusNotFound, err)
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		pet.Tags[req.Key] = req.Value
+		if err := h.PetStore.Update(&pet, user.ID); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.JSON(http.StatusOK, pet)
