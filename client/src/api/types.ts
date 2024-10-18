@@ -1,4 +1,4 @@
-type PetTags = {
+export type PetTags = {
   [key: string]: string; // A dictionary of tags where both keys and values are strings
 };
 

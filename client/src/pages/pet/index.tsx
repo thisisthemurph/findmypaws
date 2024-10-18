@@ -34,7 +34,7 @@ function PetPage() {
 
   return (
     <Wrapper>
-      <section className="flex flex-col gap-4 items-center justify-center">
+      <section className="flex flex-col gap-4 items-center justify-center mb-4">
         <img
           className="shadow-2xl rounded-full"
           src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTCHo3CkaH0oRY3MvrEN0xgn-x_Lsn3Lm3lVQ&s"
@@ -43,14 +43,14 @@ function PetPage() {
         <p className="text-4xl capitalize font-semibold text-center">{pet.name}</p>
       </section>
       <section className="flex justify-center gap-2">
-        <div className="flex justify-center gap-2">
+        <div className="flex flex-wrap justify-center gap-2">
           {Object.entries(pet.tags ?? {}).map(([key, value]) => (
             <Badge key={key} title={`tag type: ${key}`} variant="outline" size="lg">
               {value}
             </Badge>
           ))}
           {Object.entries(pet.tags ?? {}).length > 0 && (
-            <NewTagDialog petName={pet.name}>
+            <NewTagDialog pet={pet}>
               <button>
                 <Badge title="Add a new tag" variant="secondary" size="lg" className="hover:shadow-lg">
                   <svg
@@ -69,7 +69,7 @@ function PetPage() {
           )}
         </div>
         {Object.entries(pet.tags ?? {}).length === 0 && (
-          <NewTagDialog petName={pet.name}>
+          <NewTagDialog pet={pet}>
             <Button size="sm" variant="outline">
               Add a new tag
             </Button>

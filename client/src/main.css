@@ -679,6 +679,10 @@ body {
   margin-bottom: 0.25rem;
 }
 
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
+
 .mb-4 {
   margin-bottom: 1rem;
 }
@@ -689,6 +693,10 @@ body {
 
 .mt-6 {
   margin-top: 1.5rem;
+}
+
+.mb-12 {
+  margin-bottom: 3rem;
 }
 
 .block {
@@ -713,11 +721,6 @@ body {
 
 .hidden {
   display: none;
-}
-
-.size-6 {
-  width: 1.5rem;
-  height: 1.5rem;
 }
 
 .size-4 {
@@ -793,12 +796,12 @@ body {
   width: 18rem;
 }
 
-.w-full {
-  width: 100%;
-}
-
 .w-\[95\%\] {
   width: 95%;
+}
+
+.w-full {
+  width: 100%;
 }
 
 .min-w-\[8rem\] {
@@ -847,6 +850,10 @@ body {
 
 .flex-col-reverse {
   flex-direction: column-reverse;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
 }
 
 .items-center {
@@ -967,11 +974,6 @@ body {
 
 .bg-primary {
   background-color: hsl(var(--primary));
-}
-
-.bg-red-500 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(239 68 68 / var(--tw-bg-opacity));
 }
 
 .bg-secondary {
