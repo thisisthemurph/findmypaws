@@ -1,10 +1,10 @@
 import { createBrowserRouter } from "react-router-dom";
 
 import Root from "@/pages/Root.tsx";
-import PetProfile from "@/pages/PetProfile.tsx";
 import Home from "@/pages/Home.tsx";
 import LogInPage from "@/pages/auth/LogInPage.tsx";
 import SignUpPage from "@/pages/auth/SignUpPage.tsx";
+import ProfilePage from "@/pages/profile";
 
 export const router = createBrowserRouter([
   {
@@ -24,8 +24,8 @@ export const router = createBrowserRouter([
         element: <SignUpPage />,
       },
       {
-        path: "/profile/:id",
-        element: <PetProfile />,
+        path: "/profile",
+        element: <ProfilePage />,
       },
     ],
   },

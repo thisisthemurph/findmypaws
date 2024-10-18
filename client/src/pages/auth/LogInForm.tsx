@@ -31,7 +31,7 @@ function LogInForm() {
   async function onSubmit(credentials: LoginFormInputs) {
     try {
       await login(credentials);
-      navigate("/");
+      navigate("/profile");
     } catch (error: any) {
       toast({
         title: "Something went wrong",

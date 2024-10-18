@@ -33,7 +33,7 @@ function SignUpForm() {
   async function onSubmit(values: SignUpFormInputs) {
     try {
       await auth.signup(values);
-      navigate("/");
+      navigate("/login");
     } catch (error: any) {
       toast({
         title: "Something went wrong",
