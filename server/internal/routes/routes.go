@@ -10,6 +10,8 @@ import (
 	"paws/internal/store"
 )
 
+const HeaderRefreshToken = "X-Refresh-Token"
+
 type RouteMaker interface {
 	MakeRoutes(e *echo.Group)
 }
@@ -46,11 +48,22 @@ func getRouteHandlers(s *store.PostgresStore, logger *slog.Logger) []RouteMaker 
 }
 
 func configureCORS(e *echo.Echo, clientBaseURL string) {
-	allowOrigins := []string{clientBaseURL}
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     allowOrigins,
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
-		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
+		AllowOrigins: []string{clientBaseURL},
+		AllowHeaders: []string{
+			echo.HeaderOrigin,
+			echo.HeaderContentType,
+			echo.HeaderAccept,
+			echo.HeaderAuthorization,
+			HeaderRefreshToken,
+		},
+		AllowMethods: []string{
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+		},
 		AllowCredentials: true,
 	}))
 }
