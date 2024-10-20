@@ -701,12 +701,12 @@ h2 {
   margin-bottom: 1.5rem;
 }
 
-.mt-6 {
-  margin-top: 1.5rem;
-}
-
 .ml-auto {
   margin-left: auto;
+}
+
+.mt-6 {
+  margin-top: 1.5rem;
 }
 
 .block {
@@ -746,6 +746,10 @@ h2 {
   height: 2.75rem;
 }
 
+.h-2 {
+  height: 0.5rem;
+}
+
 .h-3\.5 {
   height: 0.875rem;
 }
@@ -774,10 +778,6 @@ h2 {
   height: 1px;
 }
 
-.h-2 {
-  height: 0.5rem;
-}
-
 .max-h-96 {
   max-height: 24rem;
 }
@@ -788,6 +788,10 @@ h2 {
 
 .w-10 {
   width: 2.5rem;
+}
+
+.w-2 {
+  width: 0.5rem;
 }
 
 .w-3\.5 {
@@ -816,10 +820,6 @@ h2 {
 
 .w-full {
   width: 100%;
-}
-
-.w-2 {
-  width: 0.5rem;
 }
 
 .min-w-\[8rem\] {
@@ -1017,6 +1017,11 @@ h2 {
   padding: 1.5rem;
 }
 
+.px-2 {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
 .px-2\.5 {
   padding-left: 0.625rem;
   padding-right: 0.625rem;
@@ -1055,11 +1060,6 @@ h2 {
 .py-2 {
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
-}
-
-.px-2 {
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
 }
 
 .pb-4 {
@@ -1196,16 +1196,16 @@ h2 {
   opacity: 0.5;
 }
 
+.opacity-60 {
+  opacity: 0.6;
+}
+
 .opacity-70 {
   opacity: 0.7;
 }
 
 .opacity-90 {
   opacity: 0.9;
-}
-
-.opacity-60 {
-  opacity: 0.6;
 }
 
 .shadow {

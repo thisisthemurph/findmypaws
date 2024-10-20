@@ -5,8 +5,10 @@ import { useNavigation } from "../hooks/useNavigation.tsx";
 
 function Navigation() {
   const [navOpen, setNavOpen] = useNavigation();
-  const { loggedIn, logout } = useAuth();
+  const { logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  const loggedIn = isAuthenticated();
 
   async function handleLogout() {
     try {
