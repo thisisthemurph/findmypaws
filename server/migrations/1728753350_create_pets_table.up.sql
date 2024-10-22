@@ -5,6 +5,7 @@ create table if not exists pets (
     name text not null,
     tags jsonb,
     dob date,
+    avatar_uri text,
     created_at timestamp with time zone default now(),
     updated_at timestamp with time zone default now()
 );

@@ -20,11 +20,11 @@ func NewPostgresPetStore(db *sqlx.DB) *PostgresPetStore {
 
 func (s PostgresPetStore) Pet(id uuid.UUID) (types.Pet, error) {
 	stmt := `
-		select id, name, tags, dob, created_at, updated_at, coalesce(type, $2) as type
+		select id, name, tags, dob, avatar_uri, created_at, updated_at, coalesce(type, $2) as type
     	from pets p where id = $1;`
 
 	var p types.Pet
-	if err := s.QueryRow(stmt, id, types.PetTypeUnknown).Scan(&p.ID, &p.Name, &p.Tags, &p.DOB, &p.CreatedAt, &p.UpdatedAt, &p.Type); err != nil {
+	if err := s.QueryRow(stmt, id, types.PetTypeUnknown).Scan(&p.ID, &p.Name, &p.Tags, &p.DOB, &p.AvatarURI, &p.CreatedAt, &p.UpdatedAt, &p.Type); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return p, ErrPetNotFound
 		}
@@ -36,7 +36,7 @@ func (s PostgresPetStore) Pet(id uuid.UUID) (types.Pet, error) {
 
 func (s PostgresPetStore) Pets(userID uuid.UUID) ([]types.Pet, error) {
 	stmt := `
-		select id, name, tags, dob, created_at, updated_at, coalesce(type, $2) as type
+		select id, name, tags, dob, avatar_uri, created_at, updated_at, coalesce(type, $2) as type
 		from pets
 		where user_id = $1;`
 
@@ -66,6 +66,18 @@ func (s PostgresPetStore) Update(p *types.Pet, userID uuid.UUID) error {
 		returning *, coalesce(type, $7) as type;`
 
 	if err := s.Get(p, stmt, p.Name, p.Tags, p.DOB, p.Type, p.ID, userID, types.PetTypeUnknown); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s PostgresPetStore) UpdateAvatar(avatarURI string, petID, userID uuid.UUID) error {
+	stmt := `
+		update pets set avatar_uri = $1
+		where id = $2 and user_id = $3;`
+
+	_, err := s.Exec(stmt, avatarURI, petID, userID)
+	if err != nil {
 		return err
 	}
 	return nil
