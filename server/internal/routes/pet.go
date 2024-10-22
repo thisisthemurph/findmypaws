@@ -4,8 +4,10 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"paws/internal/store"
 	"paws/internal/types"
 	"time"
@@ -31,6 +33,7 @@ func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.POST("/pets/:id/tag", h.AddTag())
 	g.DELETE("/pets/:id/tag/:key", h.DeleteTag())
 	g.DELETE("/pets/:id", h.DeletePet())
+	g.PUT("/pets/:id/avatar", h.UpdateImage())
 }
 
 func (h PetsHandler) GetPetByID() echo.HandlerFunc {
@@ -227,5 +230,53 @@ func (h PetsHandler) DeletePet() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.NoContent(http.StatusNoContent)
+	}
+}
+
+func (h PetsHandler) UpdateImage() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user := CurrentUser(c)
+		if !user.LoggedIn {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+
+		petID, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+
+		avatar, err := c.FormFile("file")
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+
+		userDir := "./static/usr/" + user.ID.String()
+		if err := os.MkdirAll(userDir, os.ModePerm); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		src, err := avatar.Open()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		defer src.Close()
+		dst, err := os.Create(userDir + "/pet_avatar_" + petID.String() + ".jpg")
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		defer dst.Close()
+
+		if _, err = io.Copy(dst, src); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		avatarURI := userDir[2:] + "/pet_avatar_" + petID.String() + ".jpg"
+		if err := h.PetStore.UpdateAvatar(avatarURI, petID, user.ID); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		return c.JSON(http.StatusCreated, map[string]string{
+			"avatar_uri": avatarURI,
+		})
 	}
 }

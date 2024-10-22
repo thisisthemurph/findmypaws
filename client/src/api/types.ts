@@ -9,6 +9,7 @@ export type Pet = {
   name: string;
   tags: PetTags;
   dob: string | null;
+  avatar: string | null;
   created_at: string;
   updated_at: string;
 };

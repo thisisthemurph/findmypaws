@@ -6,15 +6,9 @@ import { Wrapper } from "@/components/Wrapper.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import NewTagDialog from "@/pages/pet/NewTagDialog.tsx";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu.tsx";
 import { useToast } from "@/hooks/use-toast.ts";
+import PetAvatar from "@/pages/pet/PetAvatar.tsx";
+import Tag from "@/pages/pet/Tag.tsx";
 
 async function deleteTag(petId: string, key: string, token: string) {
   return fetch(`${import.meta.env.VITE_API_BASE_URL}/pets/${petId}/tag/${key}`, {
@@ -34,18 +28,23 @@ function PetPage() {
     data: pet,
   } = useQuery<Pet>({
     queryKey: ["pet"],
-    queryFn: () =>
+    queryFn: async () =>
       fetch(`${import.meta.env.VITE_API_BASE_URL}/pets/${id}`, {
         method: "GET",
         headers: { Authorization: `Bearer ${session?.access_token}` },
-      }).then((res) => res.json()),
+      }).then((res) => {
+        if (!res.ok) {
+          throw new Error("There has been an issue fetching pet");
+        }
+        return res.json();
+      }),
   });
 
   const queryClient = useQueryClient();
-  const mutation = useMutation({
+  const deleteTagMutation = useMutation({
     mutationFn: (key: string) => deleteTag(pet?.id ?? "", key, session?.access_token ?? ""),
     onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ["pet"] });
+      await queryClient.invalidateQueries({ queryKey: ["pet"] });
       toast({
         title: "Deleted",
         description: "You have deleted the tag!",
@@ -60,6 +59,49 @@ function PetPage() {
     },
   });
 
+  const updateAvatarMutation = useMutation({
+    mutationFn: async (file: File) => await updateAvatar(file),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["pet"] });
+      toast({
+        title: "Updated",
+        description: "Your avatar has been updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Something went wrong",
+        description: error?.message || "There has been an issue updating the avatar.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  async function updateAvatar(file: File) {
+    const allowedTypes = ["image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error("Only JPEG and PNG file types are allowed.");
+    }
+
+    const url = `${import.meta.env.VITE_API_BASE_URL}/pets/${id}/avatar`;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("fileName", file.name);
+
+    return await fetch(url, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${session?.access_token ?? ""}`,
+      },
+      body: formData,
+    }).then((res) => {
+      if (!res.ok) {
+        throw new Error("Error updating the avatar.");
+      }
+      return res.json();
+    });
+  }
+
   if (error) {
     return <pre>{JSON.stringify(error, null, 2)}</pre>;
   }
@@ -70,25 +112,13 @@ function PetPage() {
 
   return (
     <Wrapper>
-      <section className="flex flex-col gap-4 items-center justify-center mb-4">
-        <img
-          className="shadow-2xl rounded-full"
-          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTCHo3CkaH0oRY3MvrEN0xgn-x_Lsn3Lm3lVQ&s"
-          alt={pet.name}
-        />
-        <p className="text-4xl capitalize font-semibold text-center">{pet.name}</p>
-      </section>
+      <PetAvatar pet={pet} changeAvatar={async (file: File) => updateAvatarMutation.mutate(file)} />
       <section className="flex justify-center gap-2">
         <div className="flex flex-wrap justify-center gap-2">
           {Object.entries(pet.tags ?? {}).map(([key, value]) => (
-            <PetBadge
-              key={key}
-              tagKey={key}
-              tagValue={value}
-              handleDelete={(key) => {
-                mutation.mutate(key);
-              }}
-            />
+            <Tag key={key} identifier={key} handleDelete={(key) => deleteTagMutation.mutate(key)}>
+              {value}
+            </Tag>
           ))}
           {Object.entries(pet.tags ?? {}).length > 0 && (
             <NewTagDialog pet={pet}>
@@ -118,31 +148,6 @@ function PetPage() {
         )}
       </section>
     </Wrapper>
-  );
-}
-
-function PetBadge({
-  tagKey,
-  tagValue,
-  handleDelete,
-}: {
-  tagKey: string;
-  tagValue: string;
-  handleDelete: (key: string) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger>
-        <Badge key={tagKey} title={`tag type: ${tagKey}`} variant="outline" size="lg">
-          {tagValue}
-        </Badge>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuLabel>Tag actions</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleDelete(tagKey)}>Delete</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

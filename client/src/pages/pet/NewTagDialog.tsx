@@ -9,7 +9,7 @@ import {
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form.tsx";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { ReactNode, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,8 +18,8 @@ import { Pet } from "@/api/types.ts";
 import { useToast } from "@/hooks/use-toast.ts";
 
 const addTagFormSchema = z.object({
-  key: z.string(),
-  value: z.string(),
+  key: z.string().min(1, "A label must be provided."),
+  value: z.string().min(1, "A value must be provided."),
 });
 
 type AddTagFormInputs = z.infer<typeof addTagFormSchema>;
@@ -37,7 +37,12 @@ async function createNewTag(petId: string, key: string, value: string, token: st
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ key, value }),
-  }).then((res) => res.json());
+  }).then((res) => {
+    if (!res.ok) {
+      throw new Error("There was an error adding the tag");
+    }
+    return res.json();
+  });
 }
 
 function NewTagDialog({ pet, children }: NewTagDialogProps) {
@@ -58,8 +63,8 @@ function NewTagDialog({ pet, children }: NewTagDialogProps) {
   const mutation = useMutation({
     mutationFn: (data: AddTagFormInputs) =>
       createNewTag(pet.id, data.key, data.value, session?.access_token ?? ""),
-    onSuccess: (created: Pet) => {
-      queryClient.invalidateQueries({ queryKey: ["pet"] });
+    onSuccess: async (created: Pet) => {
+      await queryClient.invalidateQueries({ queryKey: ["pet"] });
       setOpen(false);
       form.reset();
       toast({
@@ -83,7 +88,7 @@ function NewTagDialog({ pet, children }: NewTagDialogProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="w-[95%] rounded-lg">
-        <DialogTitle>New a new tag</DialogTitle>
+        <DialogTitle>Add a new tag</DialogTitle>
         <DialogDescription>
           Add a new tag such as the breed, age, or any other information you would like people to know about{" "}
           {pet.name}.
@@ -99,6 +104,7 @@ function NewTagDialog({ pet, children }: NewTagDialogProps) {
                   <FormControl>
                     <Input placeholder="Breed" {...field} />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -111,6 +117,7 @@ function NewTagDialog({ pet, children }: NewTagDialogProps) {
                   <FormControl>
                     <Input placeholder="Labrador" {...field} />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />

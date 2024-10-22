@@ -23,6 +23,7 @@ type Router struct {
 func NewRouter(s *store.PostgresStore, clientBaseURL string, logger *slog.Logger) *Router {
 	e := echo.New()
 	e.Validator = NewCustomValidator()
+	e.Static("/static", "./static")
 
 	userMiddleware := NewUserMiddleware(s, logger)
 	baseGroup := e.Group("/api/v1")
