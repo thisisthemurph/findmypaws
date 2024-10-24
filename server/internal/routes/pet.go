@@ -104,11 +104,12 @@ func (h PetsHandler) CreateNewPet() echo.HandlerFunc {
 }
 
 type UpdatePetRequest struct {
-	ID   uuid.UUID      `json:"id" validate:"required"`
-	Type *types.PetType `json:"type" validate:"max=16"`
-	Name string         `json:"name"`
-	DOB  *time.Time     `json:"dob"`
-	Tags types.PetTags  `json:"tags"`
+	ID    uuid.UUID      `json:"id" validate:"required"`
+	Type  *types.PetType `json:"type" validate:"max=16"`
+	Name  string         `json:"name"`
+	DOB   *time.Time     `json:"dob"`
+	Tags  types.PetTags  `json:"tags"`
+	Blurb *string        `json:"blurb"`
 }
 
 func (h PetsHandler) UpdatePet() echo.HandlerFunc {
@@ -124,11 +125,12 @@ func (h PetsHandler) UpdatePet() echo.HandlerFunc {
 		}
 
 		pet := &types.Pet{
-			ID:   req.ID,
-			Type: req.Type,
-			Name: req.Name,
-			Tags: req.Tags,
-			DOB:  req.DOB,
+			ID:    req.ID,
+			Type:  req.Type,
+			Name:  req.Name,
+			Tags:  req.Tags,
+			DOB:   req.DOB,
+			Blurb: req.Blurb,
 		}
 
 		if err := h.PetStore.Update(pet, user.ID); err != nil {

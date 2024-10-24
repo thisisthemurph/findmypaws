@@ -24,6 +24,7 @@ type Pet struct {
 	Tags      PetTags    `json:"tags" db:"tags"`
 	DOB       *time.Time `json:"dob" db:"dob"`
 	AvatarURI *string    `json:"avatar" db:"avatar_uri"`
+	Blurb     *string    `json:"blurb" db:"blurb"`
 	CreatedAt time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at" db:"updated_at"`
 }

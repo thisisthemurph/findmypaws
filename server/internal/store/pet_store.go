@@ -20,23 +20,23 @@ func NewPostgresPetStore(db *sqlx.DB) *PostgresPetStore {
 
 func (s PostgresPetStore) Pet(id uuid.UUID) (types.Pet, error) {
 	stmt := `
-		select id, name, tags, dob, avatar_uri, created_at, updated_at, coalesce(type, $2) as type
-    	from pets p where id = $1;`
+		select id, name, tags, dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
+    	from pets
+    	where id = $1;`
 
 	var p types.Pet
-	if err := s.QueryRow(stmt, id, types.PetTypeUnknown).Scan(&p.ID, &p.Name, &p.Tags, &p.DOB, &p.AvatarURI, &p.CreatedAt, &p.UpdatedAt, &p.Type); err != nil {
+	if err := s.Get(&p, stmt, id, types.PetTypeUnknown); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return p, ErrPetNotFound
 		}
 		return p, err
 	}
-
 	return p, nil
 }
 
 func (s PostgresPetStore) Pets(userID uuid.UUID) ([]types.Pet, error) {
 	stmt := `
-		select id, name, tags, dob, avatar_uri, created_at, updated_at, coalesce(type, $2) as type
+		select id, name, tags, dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
 		from pets
 		where user_id = $1;`
 
@@ -61,11 +61,11 @@ func (s PostgresPetStore) Create(p *types.Pet) error {
 
 func (s PostgresPetStore) Update(p *types.Pet, userID uuid.UUID) error {
 	stmt := `
-		update pets set name = $1, tags = $2, dob = $3, type = $4
-		where id = $5 and user_id = $6
-		returning *, coalesce(type, $7) as type;`
+		update pets set name = $1, tags = $2, dob = $3, type = $4, blurb = $5
+		where id = $6 and user_id = $7
+		returning *, coalesce(type, $8) as type;`
 
-	if err := s.Get(p, stmt, p.Name, p.Tags, p.DOB, p.Type, p.ID, userID, types.PetTypeUnknown); err != nil {
+	if err := s.Get(p, stmt, p.Name, p.Tags, p.DOB, p.Type, p.Blurb, p.ID, userID, types.PetTypeUnknown); err != nil {
 		return err
 	}
 	return nil

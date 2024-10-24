@@ -9,6 +9,7 @@ import NewTagDialog from "@/pages/pet/NewTagDialog.tsx";
 import { useToast } from "@/hooks/use-toast.ts";
 import PetAvatar from "@/pages/pet/PetAvatar.tsx";
 import Tag from "@/pages/pet/Tag.tsx";
+import DetailsForm from "@/pages/pet/DetailsForm.tsx";
 
 async function deleteTag(petId: string, key: string, token: string) {
   return fetch(`${import.meta.env.VITE_API_BASE_URL}/pets/${petId}/tag/${key}`, {
@@ -28,16 +29,20 @@ function PetPage() {
     data: pet,
   } = useQuery<Pet>({
     queryKey: ["pet"],
-    queryFn: async () =>
-      fetch(`${import.meta.env.VITE_API_BASE_URL}/pets/${id}`, {
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pets/${id}`, {
         method: "GET",
         headers: { Authorization: `Bearer ${session?.access_token}` },
-      }).then((res) => {
-        if (!res.ok) {
-          throw new Error("There has been an issue fetching pet");
-        }
-        return res.json();
-      }),
+      });
+
+      if (!res.ok) {
+        throw new Error("There has been an issue fetching pet");
+      }
+
+      const data = await res.json();
+      console.log({ pet: data });
+      return data;
+    },
   });
 
   const queryClient = useQueryClient();
@@ -111,7 +116,7 @@ function PetPage() {
   }
 
   return (
-    <Wrapper>
+    <Wrapper className="flex flex-col gap-4">
       <PetAvatar pet={pet} changeAvatar={async (file: File) => updateAvatarMutation.mutate(file)} />
       <section className="flex justify-center gap-2">
         <div className="flex flex-wrap justify-center gap-2">
@@ -147,6 +152,7 @@ function PetPage() {
           </NewTagDialog>
         )}
       </section>
+      <DetailsForm pet={pet} />
     </Wrapper>
   );
 }

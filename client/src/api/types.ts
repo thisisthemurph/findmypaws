@@ -10,6 +10,7 @@ export type Pet = {
   tags: PetTags;
   dob: string | null;
   avatar: string | null;
+  blurb: string | null;
   created_at: string;
   updated_at: string;
 };

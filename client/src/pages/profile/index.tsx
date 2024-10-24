@@ -26,20 +26,22 @@ function ProfilePage() {
         method: "GET",
         headers: { Authorization: `Bearer ${session?.access_token}` },
       }).then((res) => {
-        const data = res.json();
-        console.log(data);
-        return data;
+        if (!res.ok) {
+          throw new Error("There was a problem fetching your pets");
+        }
+        return res.json();
       }),
   });
 
   return (
-    <Wrapper>
+    <Wrapper className="flex flex-col gap-6">
       <h1>Welcome back {user?.name}!</h1>
+
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
           <Button variant="outline">Add a new pet</Button>
         </DialogTrigger>
-        <DialogContent className="w-4/5 rounded-lg" aria-description="add bew pet from">
+        <DialogContent className="w-[95%] rounded-lg" aria-description="add bew pet from">
           <DialogHeader className="text-left">
             <DialogTitle>Add a new pet</DialogTitle>
             <DialogDescription>Use this form to add a new pets details...</DialogDescription>
@@ -47,7 +49,8 @@ function ProfilePage() {
           <NewPetForm onFormComplete={() => setIsOpen(false)} />
         </DialogContent>
       </Dialog>
-      <section className="mt-6">
+
+      <section>
         <h2>Your pets</h2>
         <div className="flex flex-col gap-4">
           {isPending && <p>Walking your pets</p>}
