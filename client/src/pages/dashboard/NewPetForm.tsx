@@ -12,7 +12,7 @@ import { Pet } from "@/api/types.ts";
 
 const newPetFormSchema = z.object({
   name: z.string().min(1, "The name of your pet is required"),
-  type: z.string(),
+  type: z.string().min(1, "Please select a type for your pet"),
 });
 
 type NewPetFormInputs = z.infer<typeof newPetFormSchema>;
@@ -32,6 +32,7 @@ export default function NewPetForm({ onFormComplete }: NewPetFormProps) {
       name: "",
       type: "",
     },
+    mode: "onChange",
   });
 
   async function handleCreatePet(newPet: NewPetFormInputs) {
@@ -49,7 +50,7 @@ export default function NewPetForm({ onFormComplete }: NewPetFormProps) {
         title: "Success",
         description:
           created.type !== "Unspecified"
-            ? `Your ${created.type.toLocaleLowerCase()}, ${created.name} has been added!`
+            ? `Your ${created.type.toLocaleLowerCase()}, ${created.name}, has been added to your kennel.`
             : `${created.name} has been added!`,
       });
       onFormComplete();
@@ -102,7 +103,9 @@ export default function NewPetForm({ onFormComplete }: NewPetFormProps) {
           )}
         />
 
-        <Button type="submit">Add</Button>
+        <Button type="submit" disabled={!form.formState.isValid}>
+          Add
+        </Button>
       </form>
     </Form>
   );
