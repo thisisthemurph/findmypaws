@@ -1,6 +1,6 @@
 create table if not exists pets (
     id uuid primary key default uuid_generate_v4(),
-    user_id uuid references profiles (id) on delete cascade,
+    user_id text,
     type varchar(16),
     name text not null,
     tags jsonb,
@@ -10,6 +10,8 @@ create table if not exists pets (
     created_at timestamp with time zone default now(),
     updated_at timestamp with time zone default now()
 );
+
+create index idx_pets_user_id on pets (user_id);
 
 create trigger pets_update_updated_at
     before update on pets

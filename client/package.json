@@ -11,6 +11,7 @@
     "tw": "npx tailwindcss -i tailwind.css -o ./src/main.css --watch"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.13.1",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.2",

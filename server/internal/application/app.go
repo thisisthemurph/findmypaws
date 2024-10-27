@@ -3,13 +3,14 @@ package application
 import (
 	"log/slog"
 	"os"
+
 	"paws/internal/routes"
 	"paws/internal/store"
 
+	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	"github.com/supabase-community/supabase-go"
 )
 
 type App struct {
@@ -28,6 +29,8 @@ func NewApp() (*App, error) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource: true,
 	}))
+
+	clerk.SetKey(config.Clerk.Secret)
 
 	return &App{
 		Logger: logger,
@@ -55,12 +58,6 @@ func (app *App) configureStores() error {
 		return err
 	}
 
-	client, err := supabase.NewClient(app.Config.Supabase.URL, app.Config.Supabase.AnonKey, nil)
-	if err != nil {
-		return err
-	}
-
-	s := store.NewPostgresStore(db, client, app.Config.Supabase.JWTSecret)
-	app.Store = s
+	app.Store = store.NewPostgresStore(db)
 	return nil
 }

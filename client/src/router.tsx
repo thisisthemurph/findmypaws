@@ -1,37 +1,37 @@
 import { createBrowserRouter } from "react-router-dom";
 
-import Root from "@/pages/Root.tsx";
-import Home from "@/pages/Home.tsx";
-import LogInPage from "@/pages/auth/LogInPage.tsx";
-import SignUpPage from "@/pages/auth/SignUpPage.tsx";
-import ProfilePage from "@/pages/profile";
-import ProtectedRoute from "@/contexts/ProtectedRoute.tsx";
+import HomePage from "@/pages/home";
+import RootLayout from "@/layouts/root-layout.tsx";
+import ClerkSignInPage from "@/pages/clerk/ClerkSignInPage.tsx";
+import ClerkProfilePage from "@/pages/clerk/ClerkProfilePage.tsx";
+import DashboardPage from "@/pages/dashboard";
+import SignedInLayout from "@/layouts/signed-in-layout.tsx";
 import PetPage from "@/pages/pet";
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Root />,
+    element: <RootLayout />,
     children: [
       {
         path: "/",
-        element: <Home />,
+        element: <HomePage />,
       },
       {
-        path: "/login",
-        element: <LogInPage />,
+        path: "/sign-in/*",
+        element: <ClerkSignInPage />,
       },
       {
-        path: "/signup",
-        element: <SignUpPage />,
+        path: "/user-profile",
+        element: <ClerkProfilePage />,
       },
       {
-        path: "/profile",
-        element: <ProtectedRoute />,
+        path: "dashboard",
+        element: <SignedInLayout />,
         children: [
           {
-            path: "/profile",
-            element: <ProfilePage />,
+            path: "/dashboard",
+            element: <DashboardPage />,
           },
         ],
       },

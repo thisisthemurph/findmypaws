@@ -18,7 +18,7 @@ const (
 
 type Pet struct {
 	ID        uuid.UUID  `json:"id" db:"id"`
-	UserID    uuid.UUID  `json:"user_id" db:"user_id"`
+	UserID    string     `json:"user_id" db:"user_id"`
 	Type      *PetType   `json:"type" db:"type"`
 	Name      string     `json:"name" db:"name"`
 	Tags      PetTags    `json:"tags" db:"tags"`

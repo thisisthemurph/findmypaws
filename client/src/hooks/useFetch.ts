@@ -1,0 +1,42 @@
+import { useAuth } from "@clerk/clerk-react";
+import { z } from "zod";
+
+interface UseFetchOptions {
+  method?: string;
+  headers?: HeadersInit;
+  body?: BodyInit | null;
+}
+
+const errorSchema = z.object({
+  message: z.string(),
+});
+
+export const useFetch = () => {
+  const { getToken } = useAuth();
+
+  return async <T = unknown>(url: string, options?: UseFetchOptions): Promise<T> => {
+    const token = await getToken();
+
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      ...(options?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...options?.headers,
+    };
+
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}${url}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const body = await response.json();
+      const result = errorSchema.safeParse(body);
+      if (result.success) {
+        throw new Error(result.data.message);
+      }
+      throw new Error();
+    }
+
+    return (await response.json()) as T;
+  };
+};

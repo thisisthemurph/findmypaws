@@ -1,53 +1,29 @@
 import { useParams } from "react-router-dom";
+import { useFetch } from "@/hooks/useFetch.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pet } from "@/api/types.ts";
-import { useAuth } from "@/hooks/useAuth.tsx";
-import { Wrapper } from "@/components/Wrapper.tsx";
-import { Button } from "@/components/ui/button.tsx";
-import { Badge } from "@/components/ui/badge.tsx";
-import NewTagDialog from "@/pages/pet/NewTagDialog.tsx";
-import { useToast } from "@/hooks/use-toast.ts";
 import PetAvatar from "@/pages/pet/PetAvatar.tsx";
 import Tag from "@/pages/pet/Tag.tsx";
+import NewTagDialog from "@/pages/pet/NewTagDialog.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
+import { Button } from "@/components/ui/button.tsx";
 import DetailsForm from "@/pages/pet/DetailsForm.tsx";
+import { useToast } from "@/hooks/use-toast.ts";
 
-async function deleteTag(petId: string, key: string, token: string) {
-  return fetch(`${import.meta.env.VITE_API_BASE_URL}/pets/${petId}/tag/${key}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  }).then((res) => res.json());
-}
-
-function PetPage() {
+export default function PetPage() {
   const { id } = useParams();
-  const { session } = useAuth();
   const { toast } = useToast();
+  const fetch = useFetch();
+  const queryClient = useQueryClient();
 
-  const {
-    isPending,
-    error,
-    data: pet,
-  } = useQuery<Pet>({
+  const { data: pet, isLoading } = useQuery<Pet>({
     queryKey: ["pet"],
-    queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pets/${id}`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-
-      if (!res.ok) {
-        throw new Error("There has been an issue fetching pet");
-      }
-
-      const data = await res.json();
-      console.log({ pet: data });
-      return data;
-    },
+    queryFn: () => fetch<Pet>(`/pets/${id}`),
   });
 
-  const queryClient = useQueryClient();
   const deleteTagMutation = useMutation({
-    mutationFn: (key: string) => deleteTag(pet?.id ?? "", key, session?.access_token ?? ""),
+    mutationFn: async (deleteRequest: { petId: string; key: string }) =>
+      await fetch<void>(`/pets/${deleteRequest.petId}/tag/${deleteRequest.key}`, { method: "DELETE" }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["pet"] });
       toast({
@@ -65,7 +41,21 @@ function PetPage() {
   });
 
   const updateAvatarMutation = useMutation({
-    mutationFn: async (file: File) => await updateAvatar(file),
+    mutationFn: async (file: File) => {
+      const allowedMimeTypes = ["image/jpeg", "image/png"];
+      if (!allowedMimeTypes.includes(file.type)) {
+        throw new Error("Only JPEG and PNG files are allowed");
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("fileName", file.name);
+
+      await fetch<{ avatar_url: string }>(`/pets/${id}/avatar`, {
+        method: "PUT",
+        body: formData,
+      });
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["pet"] });
       toast({
@@ -82,46 +72,25 @@ function PetPage() {
     },
   });
 
-  async function updateAvatar(file: File) {
-    const allowedTypes = ["image/jpeg", "image/png"];
-    if (!allowedTypes.includes(file.type)) {
-      throw new Error("Only JPEG and PNG file types are allowed.");
-    }
-
-    const url = `${import.meta.env.VITE_API_BASE_URL}/pets/${id}/avatar`;
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("fileName", file.name);
-
-    return await fetch(url, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${session?.access_token ?? ""}`,
-      },
-      body: formData,
-    }).then((res) => {
-      if (!res.ok) {
-        throw new Error("Error updating the avatar.");
-      }
-      return res.json();
-    });
+  async function onAvatarChange(file: File) {
+    updateAvatarMutation.mutate(file);
   }
 
-  if (error) {
-    return <pre>{JSON.stringify(error, null, 2)}</pre>;
-  }
-
-  if (isPending || !pet) {
-    return <p>Walking your pets to you...</p>;
+  if (isLoading || !pet) {
+    return "Loading";
   }
 
   return (
-    <Wrapper className="flex flex-col gap-4">
-      <PetAvatar pet={pet} changeAvatar={async (file: File) => updateAvatarMutation.mutate(file)} />
+    <>
+      <PetAvatar pet={pet} changeAvatar={onAvatarChange} />
       <section className="flex justify-center gap-2">
         <div className="flex flex-wrap justify-center gap-2">
           {Object.entries(pet.tags ?? {}).map(([key, value]) => (
-            <Tag key={key} identifier={key} handleDelete={(key) => deleteTagMutation.mutate(key)}>
+            <Tag
+              key={key}
+              identifier={key}
+              handleDelete={() => deleteTagMutation.mutate({ petId: pet.id, key })}
+            >
               {value}
             </Tag>
           ))}
@@ -153,8 +122,6 @@ function PetPage() {
         )}
       </section>
       <DetailsForm pet={pet} />
-    </Wrapper>
+    </>
   );
 }
-
-export default PetPage;

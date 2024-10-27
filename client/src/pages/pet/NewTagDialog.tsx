@@ -13,40 +13,25 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input.tsx";
 import { ReactNode, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth.tsx";
 import { Pet } from "@/api/types.ts";
 import { useToast } from "@/hooks/use-toast.ts";
+import { useFetch } from "@/hooks/useFetch.ts";
 
 const addTagFormSchema = z.object({
   key: z.string().min(1, "A label must be provided."),
   value: z.string().min(1, "A value must be provided."),
 });
 
-type AddTagFormInputs = z.infer<typeof addTagFormSchema>;
+export type AddTagFormInputs = z.infer<typeof addTagFormSchema>;
 
 interface NewTagDialogProps {
   pet: Pet;
   children: ReactNode;
 }
 
-async function createNewTag(petId: string, key: string, value: string, token: string): Promise<Pet> {
-  return fetch(`${import.meta.env.VITE_API_BASE_URL}/pets/${petId}/tag`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ key, value }),
-  }).then((res) => {
-    if (!res.ok) {
-      throw new Error("There was an error adding the tag");
-    }
-    return res.json();
-  });
-}
-
 function NewTagDialog({ pet, children }: NewTagDialogProps) {
-  const { session } = useAuth();
+  // const createNewTag = useFetch(`/pets/${pet.id}/tag`, "POST");
+  const fetch = useFetch();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
 
@@ -61,8 +46,11 @@ function NewTagDialog({ pet, children }: NewTagDialogProps) {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: (data: AddTagFormInputs) =>
-      createNewTag(pet.id, data.key, data.value, session?.access_token ?? ""),
+    mutationFn: async (data: AddTagFormInputs) =>
+      await fetch<Pet>(`/pets/${pet.id}/tag`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     onSuccess: async (created: Pet) => {
       await queryClient.invalidateQueries({ queryKey: ["pet"] });
       setOpen(false);

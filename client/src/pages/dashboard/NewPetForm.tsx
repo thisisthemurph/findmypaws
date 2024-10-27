@@ -1,12 +1,12 @@
-import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form.tsx";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input.tsx";
-import { useToast } from "@/hooks/use-toast.ts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select.tsx";
-import { useAuth } from "@/hooks/useAuth.tsx";
+import { z } from "zod";
+import { useFetch } from "@/hooks/useFetch";
+import { useToast } from "@/hooks/use-toast.ts";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pet } from "@/api/types.ts";
 
@@ -21,24 +21,11 @@ interface NewPetFormProps {
   onFormComplete: () => void;
 }
 
-async function createPet(pet: NewPetFormInputs, token: string) {
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pets`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(pet),
-  });
-  if (!response.ok) {
-    throw new Error("Failed to create new pet");
-  }
-  return response.json();
-}
-
-function NewPetForm({ onFormComplete }: NewPetFormProps) {
-  const { session } = useAuth();
+export default function NewPetForm({ onFormComplete }: NewPetFormProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const fetch = useFetch();
+
   const form = useForm<NewPetFormInputs>({
     resolver: zodResolver(newPetFormSchema),
     defaultValues: {
@@ -47,40 +34,41 @@ function NewPetForm({ onFormComplete }: NewPetFormProps) {
     },
   });
 
-  const queryClient = useQueryClient();
+  async function handleCreatePet(newPet: NewPetFormInputs) {
+    return await fetch<Pet>("/pets", {
+      method: "POST",
+      body: JSON.stringify(newPet),
+    });
+  }
 
-  const mutation = useMutation({
-    mutationFn: (newPet: NewPetFormInputs) => {
-      return createPet(newPet, session?.access_token ?? "");
-    },
-    onSuccess: (created: Pet) => {
-      queryClient.invalidateQueries({ queryKey: ["pets"] });
+  const createPetMutation = useMutation({
+    mutationFn: async (newPet: NewPetFormInputs) => handleCreatePet(newPet),
+    onSuccess: async (created: Pet) => {
+      await queryClient.invalidateQueries({ queryKey: ["pets"] });
       toast({
         title: "Success",
         description:
           created.type !== "Unspecified"
-            ? `Your ${created.type.toLocaleLowerCase()} ${created.name} has been added!`
+            ? `Your ${created.type.toLocaleLowerCase()}, ${created.name} has been added!`
             : `${created.name} has been added!`,
-        variant: "default",
       });
       onFormComplete();
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Something went wrong",
-        description: "There has been an issue adding your pet.",
+        description: error?.message || "There has been an issue adding your pet.",
         variant: "destructive",
       });
     },
   });
 
-  async function onSubmit(values: NewPetFormInputs) {
-    mutation.mutate(values);
-  }
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      <form
+        onSubmit={form.handleSubmit((values) => createPetMutation.mutate(values))}
+        className="flex flex-col gap-4"
+      >
         <FormField
           control={form.control}
           name="name"
@@ -119,5 +107,3 @@ function NewPetForm({ onFormComplete }: NewPetFormProps) {
     </Form>
   );
 }
-
-export default NewPetForm;
