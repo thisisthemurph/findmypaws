@@ -30,7 +30,7 @@ export default function DashboardPage() {
       <h1>Dashboard</h1>
 
       <section>
-        <h2>Your pets</h2>
+        <h2>Your kennel</h2>
         <div className="flex flex-col sm:flex-row flex-wrap gap-4">
           {isLoading && <p>Walking your pets</p>}
           {data &&

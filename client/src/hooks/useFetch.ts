@@ -14,7 +14,7 @@ const errorSchema = z.object({
 export const useFetch = () => {
   const { getToken } = useAuth();
 
-  return async <T = unknown>(url: string, options?: UseFetchOptions): Promise<T> => {
+  return async <T = unknown>(url: string, options?: UseFetchOptions): Promise<T extends void ? void : T> => {
     const token = await getToken();
 
     const headers = {
@@ -28,6 +28,10 @@ export const useFetch = () => {
       headers,
     });
 
+    if (response.status === 204) {
+      return undefined as T extends void ? void : T;
+    }
+
     if (!response.ok) {
       const body = await response.json();
       const result = errorSchema.safeParse(body);
@@ -37,6 +41,6 @@ export const useFetch = () => {
       throw new Error();
     }
 
-    return (await response.json()) as T;
+    return (await response.json()) as T extends void ? void : T;
   };
 };

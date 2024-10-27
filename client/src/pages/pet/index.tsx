@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pet } from "@/api/types.ts";
@@ -9,16 +9,46 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import DetailsForm from "@/pages/pet/DetailsForm.tsx";
 import { useToast } from "@/hooks/use-toast.ts";
+import { ToastAction } from "@/components/ui/toast.tsx";
 
 export default function PetPage() {
   const { id } = useParams();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const fetch = useFetch();
   const queryClient = useQueryClient();
 
   const { data: pet, isLoading } = useQuery<Pet>({
     queryKey: ["pet"],
     queryFn: () => fetch<Pet>(`/pets/${id}`),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!pet) {
+        throw new Error("No pet found");
+      }
+      return await fetch<void>(`/pets/${pet.id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Deleted",
+        description: pet ? (
+          <>
+            <strong>{pet.name}</strong> has been deleted from your kennel.
+          </>
+        ) : (
+          "Your pet has been deleted from your kennel."
+        ),
+      });
+      navigate("/dashboard");
+    },
+    onError: (error: Error) =>
+      toast({
+        title: "Something went wrong",
+        description: error?.message || "There has been an issue deleting your pet.",
+        variant: "destructive",
+      }),
   });
 
   const deleteTagMutation = useMutation({
@@ -28,13 +58,13 @@ export default function PetPage() {
       await queryClient.invalidateQueries({ queryKey: ["pet"] });
       toast({
         title: "Deleted",
-        description: "You have deleted the tag!",
+        description: `The tag is no longer associated with ${pet?.name || "your pet"}.`,
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Something went wrong",
-        description: "There has been an issue adding a tag for your pet.",
+        description: error?.message || "There has been an issue deleting the tag.",
         variant: "destructive",
       });
     },
@@ -59,8 +89,8 @@ export default function PetPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["pet"] });
       toast({
-        title: "Updated",
-        description: "Your avatar has been updated.",
+        title: "Success",
+        description: "Avatar updated successfully.",
       });
     },
     onError: (error: Error) => {
@@ -121,7 +151,33 @@ export default function PetPage() {
           </NewTagDialog>
         )}
       </section>
+
       <DetailsForm pet={pet} />
+
+      <Button
+        variant="destructive"
+        className="w-full mt-2"
+        onMouseDown={() => {
+          toast({
+            title: "Delete",
+            description: (
+              <>
+                Are you sure you want to delete <strong>{pet.name}</strong> from your kennel?
+              </>
+            ),
+            action: (
+              <div className="flex flex-col gap-1">
+                <ToastAction altText="cancel deletion">Keep</ToastAction>
+                <ToastAction altText="confirm deletion" onClick={() => deleteMutation.mutate()}>
+                  Delete
+                </ToastAction>
+              </div>
+            ),
+          });
+        }}
+      >
+        Delete
+      </Button>
     </>
   );
 }
