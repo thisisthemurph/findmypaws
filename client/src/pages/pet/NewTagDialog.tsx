@@ -15,7 +15,7 @@ import { ReactNode, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pet } from "@/api/types.ts";
 import { useToast } from "@/hooks/use-toast.ts";
-import { useFetch } from "@/hooks/useFetch.ts";
+import { useApi } from "@/hooks/useApi.ts";
 
 const addTagFormSchema = z.object({
   key: z.string().min(1, "A label must be provided."),
@@ -31,7 +31,7 @@ interface NewTagDialogProps {
 
 function NewTagDialog({ pet, children }: NewTagDialogProps) {
   // const createNewTag = useFetch(`/pets/${pet.id}/tag`, "POST");
-  const fetch = useFetch();
+  const api = useApi();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
 
@@ -47,7 +47,7 @@ function NewTagDialog({ pet, children }: NewTagDialogProps) {
 
   const mutation = useMutation({
     mutationFn: async (data: AddTagFormInputs) =>
-      await fetch<Pet>(`/pets/${pet.id}/tag`, {
+      await api<Pet>(`/pets/${pet.id}/tag`, {
         method: "POST",
         body: JSON.stringify(data),
       }),

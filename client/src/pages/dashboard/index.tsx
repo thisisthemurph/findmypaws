@@ -1,4 +1,4 @@
-import { useFetch } from "@/hooks/useFetch.ts";
+import { useApi } from "@/hooks/useApi.ts";
 import { Pet } from "@/api/types.ts";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -17,12 +17,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar.tsx"
 import NewPetButton from "@/pages/dashboard/NewPetButton.tsx";
 
 export default function DashboardPage() {
-  const fetch = useFetch();
+  const api = useApi();
   const [isOpen, setIsOpen] = useState(false);
 
   const { isLoading, data } = useQuery<Pet[]>({
     queryKey: ["pets"],
-    queryFn: () => fetch("/pets"),
+    queryFn: () => api("/pets"),
   });
 
   return (

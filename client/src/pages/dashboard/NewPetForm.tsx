@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { z } from "zod";
-import { useFetch } from "@/hooks/useFetch";
+import { useApi } from "@/hooks/useApi.ts";
 import { useToast } from "@/hooks/use-toast.ts";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +24,7 @@ interface NewPetFormProps {
 export default function NewPetForm({ onFormComplete }: NewPetFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const fetch = useFetch();
+  const api = useApi();
 
   const form = useForm<NewPetFormInputs>({
     resolver: zodResolver(newPetFormSchema),
@@ -35,7 +35,7 @@ export default function NewPetForm({ onFormComplete }: NewPetFormProps) {
   });
 
   async function handleCreatePet(newPet: NewPetFormInputs) {
-    return await fetch<Pet>("/pets", {
+    return await api<Pet>("/pets", {
       method: "POST",
       body: JSON.stringify(newPet),
     });

@@ -11,7 +11,7 @@ const errorSchema = z.object({
   message: z.string(),
 });
 
-export const useFetch = () => {
+export const useApi = () => {
   const { getToken } = useAuth();
 
   return async <T = unknown>(url: string, options?: UseFetchOptions): Promise<T extends void ? void : T> => {

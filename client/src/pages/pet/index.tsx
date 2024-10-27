@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useFetch } from "@/hooks/useFetch.ts";
+import { useApi } from "@/hooks/useApi.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pet } from "@/api/types.ts";
 import PetAvatar from "@/pages/pet/PetAvatar.tsx";
@@ -15,12 +15,12 @@ export default function PetPage() {
   const { id } = useParams();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const fetch = useFetch();
+  const api = useApi();
   const queryClient = useQueryClient();
 
   const { data: pet, isLoading } = useQuery<Pet>({
     queryKey: ["pet"],
-    queryFn: () => fetch<Pet>(`/pets/${id}`),
+    queryFn: () => api<Pet>(`/pets/${id}`),
   });
 
   const deleteMutation = useMutation({
@@ -28,7 +28,7 @@ export default function PetPage() {
       if (!pet) {
         throw new Error("No pet found");
       }
-      return await fetch<void>(`/pets/${pet.id}`, { method: "DELETE" });
+      return await api<void>(`/pets/${pet.id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       toast({
@@ -53,7 +53,7 @@ export default function PetPage() {
 
   const deleteTagMutation = useMutation({
     mutationFn: async (deleteRequest: { petId: string; key: string }) =>
-      await fetch<void>(`/pets/${deleteRequest.petId}/tag/${deleteRequest.key}`, { method: "DELETE" }),
+      await api<void>(`/pets/${deleteRequest.petId}/tag/${deleteRequest.key}`, { method: "DELETE" }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["pet"] });
       toast({
@@ -81,7 +81,7 @@ export default function PetPage() {
       formData.append("file", file);
       formData.append("fileName", file.name);
 
-      await fetch<{ avatar_url: string }>(`/pets/${id}/avatar`, {
+      await api<{ avatar_url: string }>(`/pets/${id}/avatar`, {
         method: "PUT",
         body: formData,
       });
