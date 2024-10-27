@@ -10,15 +10,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog.tsx";
 import NewPetForm from "@/pages/dashboard/NewPetForm.tsx";
-import { useState } from "react";
 import { PetCard } from "@/pages/dashboard/PetCard.tsx";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar.tsx";
 import NewPetButton from "@/pages/dashboard/NewPetButton.tsx";
+import { useNavigate } from "react-router-dom";
 
 export default function DashboardPage() {
   const api = useApi();
-  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
 
   const { isLoading, data } = useQuery<Pet[]>({
     queryKey: ["pets"],
@@ -51,16 +50,18 @@ export default function DashboardPage() {
               </PetCard>
             ))}
 
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <Dialog>
             <DialogTrigger asChild>
-              <NewPetButton />
+              <NewPetButton>
+                {(data?.length || 0) === 0 ? "Add your first pet" : "Add a new pet"}
+              </NewPetButton>
             </DialogTrigger>
             <DialogContent className="w-[95%] rounded-lg" aria-description="add bew pet from">
               <DialogHeader className="text-left">
                 <DialogTitle>Add a new pet</DialogTitle>
-                <DialogDescription>Use this form to add a new pets details...</DialogDescription>
+                <DialogDescription>Add a new pet to your kennel...</DialogDescription>
               </DialogHeader>
-              <NewPetForm onFormComplete={() => setIsOpen(false)} />
+              <NewPetForm onCreated={(created) => navigate(`/pet/${created.id}`)} />
             </DialogContent>
           </Dialog>
         </div>

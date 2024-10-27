@@ -2,7 +2,7 @@ import { PetCard } from "@/pages/dashboard/PetCard.tsx";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar.tsx";
 import { ButtonHTMLAttributes } from "react";
 
-export default function NewPetButton(props: ButtonHTMLAttributes<HTMLButtonElement>) {
+export default function NewPetButton({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button {...props}>
       <PetCard>
@@ -23,7 +23,7 @@ export default function NewPetButton(props: ButtonHTMLAttributes<HTMLButtonEleme
           </Avatar>
         </PetCard.Header>
         <PetCard.Content>
-          <p className="font-semibold">Add your next pet</p>
+          <p className="font-semibold">{children}</p>
         </PetCard.Content>
       </PetCard>
     </button>
