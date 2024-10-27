@@ -12,9 +12,13 @@ import { cn } from "@/lib/utils.ts";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar.tsx";
 import { Input } from "@/components/ui/input.tsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useApi } from "@/hooks/useApi.ts";
 
 const updateFormSchema = z.object({
   name: z.string().min(1, "A name must be provided"),
+  type: z.string().min(1, "A type must be selected"),
   blurb: z.string(),
   dob: z.date().optional(),
 });
@@ -26,35 +30,47 @@ interface DetailsFormProps {
 }
 
 function DetailsForm({ pet }: DetailsFormProps) {
+  const api = useApi();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async (values: UpdateFormSchema) => {
+      return await api<Pet>(`/pets/${pet.id}`, {
+        method: "PUT",
+        body: JSON.stringify(values),
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["pet"] });
+      toast({
+        title: "You submitted the following values:",
+        description: "success",
+      });
+    },
+    onError: (error: Error) => alert(error?.message || "There has been an error updating"),
+  });
 
   function onSubmitUpdate(data: UpdateFormSchema) {
     console.log({ submitted: data });
-    toast({
-      title: "You submitted the following values:",
-      description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">{JSON.stringify(data, null, 2)}</code>
-        </pre>
-      ),
-    });
+    mutation.mutate(data);
   }
 
   const form = useForm<UpdateFormSchema>({
     resolver: zodResolver(updateFormSchema),
     defaultValues: {
       name: "",
+      type: "Unspecified",
       blurb: pet?.blurb ?? "",
       dob: undefined,
     },
   });
 
-  const { isDirty } = form.formState;
-
   useEffect(() => {
     if (pet) {
       form.reset({
         name: pet.name ?? "",
+        type: pet.type ?? "",
         blurb: pet.blurb ?? "",
         dob: pet.dob ? new Date(pet.dob) : undefined,
       });
@@ -83,12 +99,40 @@ function DetailsForm({ pet }: DetailsFormProps) {
 
         <FormField
           control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="pet-type-selector">Type</FormLabel>
+              <div className="flex items-center bg-slate-100 rounded-lg">
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger id="pet-type-selector">
+                    <SelectValue placeholder="Pet type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Cat">Cat</SelectItem>
+                    <SelectItem value="Dog">Dog</SelectItem>
+                    <SelectItem value="Unspecified">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="p-2">
+                  {field.value === "Cat" ? "🐱" : field.value === "Dog" ? "🐶" : "🐵"}
+                </span>
+              </div>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="blurb"
           render={({ field }) => (
             <FormItem>
               <FormLabel>About</FormLabel>
               <FormControl>
-                <Textarea placeholder={`What would you like to say about ${pet.name}?`} {...field} />
+                <Textarea
+                  placeholder={`What would you like to say about ${pet.name}? This information could be used to help people identify ${pet.name} or make them feel more comfortable.`}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -148,14 +192,19 @@ function DetailsForm({ pet }: DetailsFormProps) {
                     />
                   </PopoverContent>
                 </Popover>
-                <Button type="button" variant="outline">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={field.value === undefined}
+                  onClick={() => form.setValue("dob", undefined)}
+                >
                   Clear
                 </Button>
               </div>
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={!isDirty}>
+        <Button type="submit" disabled={!form.formState.isDirty || !form.formState.isValid}>
           Update
         </Button>
       </form>
