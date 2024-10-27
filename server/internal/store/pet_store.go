@@ -20,7 +20,7 @@ func NewPostgresPetStore(db *sqlx.DB) *PostgresPetStore {
 
 func (s PostgresPetStore) Pet(id uuid.UUID) (types.Pet, error) {
 	stmt := `
-		select id, name, tags, dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
+		select id, user_id, name, tags, dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
     	from pets
     	where id = $1;`
 
@@ -34,9 +34,9 @@ func (s PostgresPetStore) Pet(id uuid.UUID) (types.Pet, error) {
 	return p, nil
 }
 
-func (s PostgresPetStore) Pets(userID uuid.UUID) ([]types.Pet, error) {
+func (s PostgresPetStore) Pets(userID string) ([]types.Pet, error) {
 	stmt := `
-		select id, name, tags, dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
+		select id, user_id, name, tags, dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
 		from pets
 		where user_id = $1;`
 
@@ -59,7 +59,7 @@ func (s PostgresPetStore) Create(p *types.Pet) error {
 	return nil
 }
 
-func (s PostgresPetStore) Update(p *types.Pet, userID uuid.UUID) error {
+func (s PostgresPetStore) Update(p *types.Pet, userID string) error {
 	stmt := `
 		update pets set name = $1, tags = $2, dob = $3, type = $4, blurb = $5
 		where id = $6 and user_id = $7
@@ -71,7 +71,7 @@ func (s PostgresPetStore) Update(p *types.Pet, userID uuid.UUID) error {
 	return nil
 }
 
-func (s PostgresPetStore) UpdateAvatar(avatarURI string, petID, userID uuid.UUID) error {
+func (s PostgresPetStore) UpdateAvatar(avatarURI string, petID uuid.UUID, userID string) error {
 	stmt := `
 		update pets set avatar_uri = $1
 		where id = $2 and user_id = $3;`
@@ -83,7 +83,7 @@ func (s PostgresPetStore) UpdateAvatar(avatarURI string, petID, userID uuid.UUID
 	return nil
 }
 
-func (s PostgresPetStore) Delete(id, userID uuid.UUID) error {
+func (s PostgresPetStore) Delete(id uuid.UUID, userID string) error {
 	stmt := `delete from pets where id = $1 and user_id = $2;`
 	if _, err := s.Exec(stmt, id, userID); err != nil {
 		return err

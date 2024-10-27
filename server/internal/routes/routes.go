@@ -1,16 +1,14 @@
 package routes
 
 import (
-	"log/slog"
-	"net/http"
-
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"log/slog"
+	"net/http"
+	"paws/internal/auth"
 	"paws/internal/store"
 )
-
-const HeaderRefreshToken = "X-Refresh-Token"
 
 type RouteMaker interface {
 	MakeRoutes(e *echo.Group)
@@ -25,15 +23,17 @@ func NewRouter(s *store.PostgresStore, clientBaseURL string, logger *slog.Logger
 	e.Validator = NewCustomValidator()
 	e.Static("/static", "./static")
 
-	userMiddleware := NewUserMiddleware(s, logger)
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+	configureCORS(e, clientBaseURL)
+
 	baseGroup := e.Group("/api/v1")
-	baseGroup.Use(userMiddleware.WithUserInContext)
+	baseGroup.Use(auth.WithEchoClerkMiddleware)
+	baseGroup.Use(auth.WithClerkUserInContextMiddleware)
 
 	for _, h := range getRouteHandlers(s, logger) {
 		h.MakeRoutes(baseGroup)
 	}
-
-	configureCORS(e, clientBaseURL)
 
 	return &Router{
 		Echo: e,
@@ -42,8 +42,6 @@ func NewRouter(s *store.PostgresStore, clientBaseURL string, logger *slog.Logger
 
 func getRouteHandlers(s *store.PostgresStore, logger *slog.Logger) []RouteMaker {
 	return []RouteMaker{
-		NewAuthHandler(s, logger),
-		NewUserHandler(s, logger),
 		NewPetsHandler(s, logger),
 	}
 }
@@ -52,11 +50,16 @@ func configureCORS(e *echo.Echo, clientBaseURL string) {
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{clientBaseURL},
 		AllowHeaders: []string{
-			echo.HeaderOrigin,
-			echo.HeaderContentType,
-			echo.HeaderAccept,
 			echo.HeaderAuthorization,
-			HeaderRefreshToken,
+			echo.HeaderAccept,
+			"Host",
+			echo.HeaderOrigin,
+			"Referer",
+			"Sec-Fetch-Dest",
+			"User-Agent",
+			"X-Forwarded-Host",
+			"X-Forwarded-Proto",
+			echo.HeaderContentType,
 		},
 		AllowMethods: []string{
 			http.MethodGet,

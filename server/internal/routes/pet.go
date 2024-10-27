@@ -56,8 +56,8 @@ func (h PetsHandler) GetPetByID() echo.HandlerFunc {
 
 func (h PetsHandler) ListPets() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		user := CurrentUser(c)
-		if !user.LoggedIn {
+		user := clerkUser(c)
+		if !user.Authenticated {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
 		pets, err := h.PetStore.Pets(user.ID)
@@ -77,14 +77,26 @@ type NewPetRequest struct {
 
 func (h PetsHandler) CreateNewPet() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		user := CurrentUser(c)
-		if !user.LoggedIn {
+		user := clerkUser(c)
+		if !user.Authenticated {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
 
 		var req NewPetRequest
 		if err := c.Bind(&req); err != nil {
+			h.Logger.Error("bad request", "error", err)
 			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+
+		currentPets, err := h.PetStore.Pets(user.ID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		for _, p := range currentPets {
+			if p.Name == req.Name {
+				return echo.NewHTTPError(http.StatusBadRequest, "A pet with that name already exists.")
+			}
 		}
 
 		pet := &types.Pet{
@@ -114,8 +126,8 @@ type UpdatePetRequest struct {
 
 func (h PetsHandler) UpdatePet() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		user := CurrentUser(c)
-		if !user.LoggedIn {
+		user := clerkUser(c)
+		if !user.Authenticated {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
 
@@ -147,8 +159,8 @@ type NewTagRequest struct {
 
 func (h PetsHandler) AddTag() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		user := CurrentUser(c)
-		if !user.LoggedIn {
+		user := clerkUser(c)
+		if !user.Authenticated {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
 
@@ -186,8 +198,8 @@ func (h PetsHandler) AddTag() echo.HandlerFunc {
 
 func (h PetsHandler) DeleteTag() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		user := CurrentUser(c)
-		if !user.LoggedIn {
+		user := clerkUser(c)
+		if !user.Authenticated {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
 
@@ -218,8 +230,8 @@ func (h PetsHandler) DeleteTag() echo.HandlerFunc {
 
 func (h PetsHandler) DeletePet() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		user := CurrentUser(c)
-		if !user.LoggedIn {
+		user := clerkUser(c)
+		if !user.Authenticated {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
 
@@ -237,8 +249,8 @@ func (h PetsHandler) DeletePet() echo.HandlerFunc {
 
 func (h PetsHandler) UpdateImage() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		user := CurrentUser(c)
-		if !user.LoggedIn {
+		user := clerkUser(c)
+		if !user.Authenticated {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
 
@@ -252,7 +264,7 @@ func (h PetsHandler) UpdateImage() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest)
 		}
 
-		userDir := "./static/usr/" + user.ID.String()
+		userDir := "./static/usr/" + user.ID
 		if err := os.MkdirAll(userDir, os.ModePerm); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
