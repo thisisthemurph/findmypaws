@@ -1,29 +1,30 @@
-import { Pet } from "@/api/types.ts";
 import { Card, CardContent, CardHeader } from "@/components/ui/card.tsx";
 import { Link } from "react-router-dom";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar.tsx";
+import { ReactNode } from "react";
 
 interface PetCardProps {
-  pet: Pet;
+  petId?: string;
+  children: ReactNode;
 }
 
-function PetCard({ pet }: PetCardProps) {
+export function PetCard({ petId, children }: PetCardProps) {
+  if (!petId) {
+    return <Card className="flex hover:shadow-lg min-w-[14rem]">{children}</Card>;
+  }
   return (
-    <Link to={`/pet/${pet.id}`}>
-      <Card className="flex hover:shadow-lg">
-        <CardHeader className="flex items-center justify-center p-4">
-          <Avatar>
-            <AvatarImage src={`${import.meta.env.VITE_BASE_URL}/${pet.avatar}`} />
-            <AvatarFallback>{pet.name[0]}</AvatarFallback>
-          </Avatar>
-        </CardHeader>
-        <CardContent className="p-4 pl-0">
-          <p className="font-semibold">{pet.name}</p>
-          <p className="text-sm text-slate-600">This is an example of a description...</p>
-        </CardContent>
-      </Card>
+    <Link to={`/pet/${petId}`}>
+      <Card className="flex hover:shadow-lg min-w-[14rem]">{children}</Card>
     </Link>
   );
 }
 
-export default PetCard;
+function PetCardHeader({ children }: { children: ReactNode }) {
+  return <CardHeader className="flex items-center justify-center p-4">{children}</CardHeader>;
+}
+
+function PetCardContent({ children }: { children: ReactNode }) {
+  return <CardContent className="flex flex-col justify-center p-4 pl-0">{children}</CardContent>;
+}
+
+PetCard.Header = PetCardHeader;
+PetCard.Content = PetCardContent;

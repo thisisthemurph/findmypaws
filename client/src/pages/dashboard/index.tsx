@@ -9,10 +9,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog.tsx";
-import { Button } from "@/components/ui/button.tsx";
 import NewPetForm from "@/pages/dashboard/NewPetForm.tsx";
 import { useState } from "react";
-import PetCard from "@/pages/dashboard/PetCard.tsx";
+import { PetCard } from "@/pages/dashboard/PetCard.tsx";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar.tsx";
+import NewPetButton from "@/pages/dashboard/NewPetButton.tsx";
 
 export default function DashboardPage() {
   const fetch = useFetch();
@@ -27,24 +29,40 @@ export default function DashboardPage() {
     <>
       <h1>Dashboard</h1>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline">Add a new pet</Button>
-        </DialogTrigger>
-        <DialogContent className="w-[95%] rounded-lg" aria-description="add bew pet from">
-          <DialogHeader className="text-left">
-            <DialogTitle>Add a new pet</DialogTitle>
-            <DialogDescription>Use this form to add a new pets details...</DialogDescription>
-          </DialogHeader>
-          <NewPetForm onFormComplete={() => setIsOpen(false)} />
-        </DialogContent>
-      </Dialog>
-
       <section>
         <h2>Your pets</h2>
         <div className="flex flex-col sm:flex-row flex-wrap gap-4">
           {isLoading && <p>Walking your pets</p>}
-          {data && data.map((pet) => <PetCard key={pet.id} pet={pet} />)}
+          {data &&
+            data.map((pet, index) => (
+              <PetCard key={pet.id} petId={pet.id}>
+                <PetCard.Header>
+                  <Avatar>
+                    <AvatarImage src={`${import.meta.env.VITE_BASE_URL}/${pet.avatar}`} />
+                    <AvatarFallback>{pet.name[0]}</AvatarFallback>
+                  </Avatar>
+                </PetCard.Header>
+                <PetCard.Content>
+                  <p className="font-semibold">{pet.name}</p>
+                  <p className="text-sm text-slate-600">
+                    {index % 4 === 0 ? "This is an example of a description..." : "this is a test"}
+                  </p>
+                </PetCard.Content>
+              </PetCard>
+            ))}
+
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <NewPetButton />
+            </DialogTrigger>
+            <DialogContent className="w-[95%] rounded-lg" aria-description="add bew pet from">
+              <DialogHeader className="text-left">
+                <DialogTitle>Add a new pet</DialogTitle>
+                <DialogDescription>Use this form to add a new pets details...</DialogDescription>
+              </DialogHeader>
+              <NewPetForm onFormComplete={() => setIsOpen(false)} />
+            </DialogContent>
+          </Dialog>
         </div>
       </section>
     </>
