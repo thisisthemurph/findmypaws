@@ -42,7 +42,7 @@ export default function DashboardPage() {
 
       <section>
         <h2>Your pets</h2>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-4">
           {isLoading && <p>Walking your pets</p>}
           {data && data.map((pet) => <PetCard key={pet.id} pet={pet} />)}
         </div>

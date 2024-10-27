@@ -2,7 +2,6 @@
 <project version="4">
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/migrations/1728753330_updated_at_fn.up.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/migrations/1728753340_create_profiles_table.up.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/migrations/1728753350_create_pets_table.down.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/migrations/1728753350_create_pets_table.up.sql" dialect="PostgreSQL" />
   </component>

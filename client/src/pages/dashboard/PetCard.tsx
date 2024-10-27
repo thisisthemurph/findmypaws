@@ -1,7 +1,7 @@
 import { Pet } from "@/api/types.ts";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card.tsx";
-import { Badge } from "@/components/ui/badge.tsx";
+import { Card, CardContent, CardHeader } from "@/components/ui/card.tsx";
 import { Link } from "react-router-dom";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar.tsx";
 
 interface PetCardProps {
   pet: Pet;
@@ -10,22 +10,17 @@ interface PetCardProps {
 function PetCard({ pet }: PetCardProps) {
   return (
     <Link to={`/pet/${pet.id}`}>
-      <Card className="group hover:bg-accent hover:shadow-lg">
-        <CardHeader>
-          <CardTitle>{pet.name}</CardTitle>
+      <Card className="flex hover:shadow-lg">
+        <CardHeader className="flex items-center justify-center p-4">
+          <Avatar>
+            <AvatarImage src={`${import.meta.env.VITE_BASE_URL}/${pet.avatar}`} />
+            <AvatarFallback>{pet.name[0]}</AvatarFallback>
+          </Avatar>
         </CardHeader>
-        <CardContent>
-          <p>This is only an example!</p>
+        <CardContent className="p-4 pl-0">
+          <p className="font-semibold">{pet.name}</p>
+          <p className="text-sm text-slate-600">This is an example of a description...</p>
         </CardContent>
-        {pet.tags && Object.entries(pet.tags).length > 0 && (
-          <CardFooter className="flex flex-wrap gap-1">
-            {Object.entries(pet.tags).map(([k, v]) => (
-              <Badge variant="outline" key={k} className="bg-white">
-                {v}
-              </Badge>
-            ))}
-          </CardFooter>
-        )}
       </Card>
     </Link>
   );
