@@ -3,18 +3,19 @@ import { useApi } from "@/hooks/useApi.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pet } from "@/api/types.ts";
 import PetAvatar from "@/pages/pet/PetAvatar.tsx";
-import Tag from "@/pages/pet/Tag.tsx";
-import NewTagDialog from "@/pages/pet/NewTagDialog.tsx";
-import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import DetailsForm from "@/pages/pet/DetailsForm.tsx";
 import { useToast } from "@/hooks/use-toast.ts";
 import { ToastAction } from "@/components/ui/toast.tsx";
+import { useAuth } from "@clerk/clerk-react";
+import PublicDetails from "@/pages/pet/PublicDetails.tsx";
+import TagsSection from "@/pages/pet/TagsSection.tsx";
 
 export default function PetPage() {
   const { id } = useParams();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const auth = useAuth();
   const api = useApi();
   const queryClient = useQueryClient();
 
@@ -22,6 +23,8 @@ export default function PetPage() {
     queryKey: ["pet"],
     queryFn: () => api<Pet>(`/pets/${id}`),
   });
+
+  const userIsOwner = auth.userId === pet?.user_id;
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -113,71 +116,46 @@ export default function PetPage() {
   return (
     <>
       <PetAvatar pet={pet} changeAvatar={onAvatarChange} />
-      <section className="flex justify-center gap-2">
-        <div className="flex flex-wrap justify-center gap-2">
-          {Object.entries(pet.tags ?? {}).map(([key, value]) => (
-            <Tag
-              key={key}
-              identifier={key}
-              handleDelete={() => deleteTagMutation.mutate({ petId: pet.id, key })}
-            >
-              {value}
-            </Tag>
-          ))}
-          {Object.entries(pet.tags ?? {}).length > 0 && (
-            <NewTagDialog pet={pet}>
-              <button>
-                <Badge title="Add a new tag" variant="secondary" size="lg" className="hover:shadow-lg">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="size-4"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                </Badge>
-              </button>
-            </NewTagDialog>
-          )}
-        </div>
-        {Object.entries(pet.tags ?? {}).length === 0 && (
-          <NewTagDialog pet={pet}>
-            <Button size="sm" variant="outline">
-              Add a new tag
-            </Button>
-          </NewTagDialog>
+      <TagsSection pet={pet} editable={userIsOwner} onDelete={deleteTagMutation.mutate} />
+
+      <section className="bg-slate-50 p-8">
+        {!userIsOwner && (
+          <div className="mb-4">
+            <p className="text-2xl leading-loose">Have you seen me?</p>
+            <p className="text-lg tracking-wide leading-relaxed text-slate-800">
+              If you think you have seen {pet.name}, or you have them in your possession, please let the owner
+              know by sending them a message.
+            </p>
+          </div>
+        )}
+        {userIsOwner ? <DetailsForm pet={pet} /> : <PublicDetails pet={pet} />}
+        {userIsOwner && (
+          <Button
+            variant="destructive"
+            className="w-full mt-2"
+            onMouseDown={() => {
+              toast({
+                title: "Delete",
+                description: (
+                  <>
+                    Are you sure you want to delete <strong>{pet.name}</strong> from your kennel?
+                  </>
+                ),
+                action: (
+                  <div className="flex flex-col gap-1">
+                    <ToastAction altText="cancel deletion">Keep</ToastAction>
+                    <ToastAction altText="confirm deletion" onClick={() => deleteMutation.mutate()}>
+                      Delete
+                    </ToastAction>
+                  </div>
+                ),
+              });
+            }}
+          >
+            Delete
+          </Button>
         )}
       </section>
-
-      <DetailsForm pet={pet} />
-
-      <Button
-        variant="destructive"
-        className="w-full mt-2"
-        onMouseDown={() => {
-          toast({
-            title: "Delete",
-            description: (
-              <>
-                Are you sure you want to delete <strong>{pet.name}</strong> from your kennel?
-              </>
-            ),
-            action: (
-              <div className="flex flex-col gap-1">
-                <ToastAction altText="cancel deletion">Keep</ToastAction>
-                <ToastAction altText="confirm deletion" onClick={() => deleteMutation.mutate()}>
-                  Delete
-                </ToastAction>
-              </div>
-            ),
-          });
-        }}
-      >
-        Delete
-      </Button>
     </>
   );
 }

@@ -19,7 +19,7 @@ export default function RootLayout() {
       publishableKey={CLERK_PUBLISHABLE_KEY}
     >
       <Header />
-      <main className="p-4">
+      <main>
         <Outlet />
       </main>
       <Toaster />
