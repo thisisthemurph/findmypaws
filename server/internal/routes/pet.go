@@ -10,18 +10,26 @@ import (
 	"os"
 	"paws/internal/store"
 	"paws/internal/types"
+	"paws/pkg/blight"
 	"time"
 )
 
 func NewPetsHandler(s *store.PostgresStore, logger *slog.Logger) PetsHandler {
+	b, err := blight.New("./avatars.db")
+	if err != nil {
+		panic(err)
+	}
+
 	return PetsHandler{
 		PetStore: s.PetStore,
+		Blight:   b,
 		Logger:   logger,
 	}
 }
 
 type PetsHandler struct {
 	PetStore store.PetStore
+	Blight   *blight.Client
 	Logger   *slog.Logger
 }
 
@@ -29,11 +37,21 @@ func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.GET("/pets/:id", h.GetPetByID())
 	g.GET("/pets", h.ListPets())
 	g.POST("/pets", h.CreateNewPet())
-	g.PUT("/pets", h.UpdatePet())
+	g.PUT("/pets/:id", h.UpdatePet())
 	g.POST("/pets/:id/tag", h.AddTag())
 	g.DELETE("/pets/:id/tag/:key", h.DeleteTag())
 	g.DELETE("/pets/:id", h.DeletePet())
-	g.PUT("/pets/:id/avatar", h.UpdateImage())
+	g.PUT("/pets/:id/avatar", h.UpdateImageBlight())
+	g.GET("/pets/:id/avatar", h.GetAvatar())
+	g.GET("/pets/test", h.Test())
+}
+
+func (h PetsHandler) Test() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{
+			"message": "this is only a test",
+		})
+	}
 }
 
 func (h PetsHandler) GetPetByID() echo.HandlerFunc {
@@ -116,11 +134,9 @@ func (h PetsHandler) CreateNewPet() echo.HandlerFunc {
 }
 
 type UpdatePetRequest struct {
-	ID    uuid.UUID      `json:"id" validate:"required"`
-	Type  *types.PetType `json:"type" validate:"max=16"`
-	Name  string         `json:"name"`
+	Type  *types.PetType `json:"type" validate:"required,max=16"`
+	Name  string         `json:"name" validate:"required"`
 	DOB   *time.Time     `json:"dob"`
-	Tags  types.PetTags  `json:"tags"`
 	Blurb *string        `json:"blurb"`
 }
 
@@ -135,19 +151,36 @@ func (h PetsHandler) UpdatePet() echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest)
 		}
-
-		pet := &types.Pet{
-			ID:    req.ID,
-			Type:  req.Type,
-			Name:  req.Name,
-			Tags:  req.Tags,
-			DOB:   req.DOB,
-			Blurb: req.Blurb,
+		if err := c.Validate(req); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
 		}
 
-		if err := h.PetStore.Update(pet, user.ID); err != nil {
+		petId, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+
+		pet, err := h.PetStore.Pet(petId)
+		if err != nil {
+			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+				return echo.NewHTTPError(http.StatusNotFound, "The pet could not be found")
+			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
+
+		if pet.UserID != user.ID {
+			return echo.NewHTTPError(http.StatusUnauthorized, "You do not have permission to update this pet")
+		}
+
+		pet.Name = req.Name
+		pet.Type = req.Type
+		pet.Blurb = req.Blurb
+		pet.DOB = req.DOB
+
+		if err := h.PetStore.Update(&pet, user.ID); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
 		return c.JSON(http.StatusOK, pet)
 	}
 }
@@ -185,6 +218,10 @@ func (h PetsHandler) AddTag() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
+		if pet.UserID != user.ID {
+			return echo.NewHTTPError(http.StatusUnauthorized, "You do not have permission to update this pet")
+		}
+
 		if pet.Tags == nil {
 			pet.Tags = make(types.PetTags)
 		}
@@ -217,6 +254,10 @@ func (h PetsHandler) DeleteTag() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
+		if pet.UserID != user.ID {
+			return echo.NewHTTPError(http.StatusUnauthorized, "You do not have permission to update this pet")
+		}
+
 		if pet.Tags == nil {
 			pet.Tags = make(types.PetTags)
 		}
@@ -238,6 +279,18 @@ func (h PetsHandler) DeletePet() echo.HandlerFunc {
 		petID, err := uuid.Parse(c.Param("id"))
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+
+		existingPet, err := h.PetStore.Pet(petID)
+		if err != nil {
+			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+				return echo.NewHTTPError(http.StatusNotFound)
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		if existingPet.UserID != user.ID {
+			return echo.NewHTTPError(http.StatusUnauthorized, "You do not have permission to update this pet")
 		}
 
 		if err := h.PetStore.Delete(petID, user.ID); err != nil {
@@ -292,5 +345,59 @@ func (h PetsHandler) UpdateImage() echo.HandlerFunc {
 		return c.JSON(http.StatusCreated, map[string]string{
 			"avatar_uri": avatarURI,
 		})
+	}
+}
+
+func (h PetsHandler) UpdateImageBlight() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user := clerkUser(c)
+		if !user.Authenticated {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+
+		petID, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+
+		avatar, err := c.FormFile("file")
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+
+		src, err := avatar.Open()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		defer src.Close()
+
+		path := petID.String()
+		if err := h.Blight.Add(path, src); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		return c.JSON(http.StatusCreated, map[string]string{
+			"avatar_uri": path,
+		})
+	}
+}
+
+func (h PetsHandler) GetAvatar() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+
+		r, err := h.Blight.Get(id.String())
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+
+		c.Response().Header().Set(echo.HeaderContentType, "image/jpeg")
+		if _, err := io.Copy(c.Response(), r.BLOB); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+		return nil
 	}
 }

@@ -18,10 +18,10 @@ const newPetFormSchema = z.object({
 type NewPetFormInputs = z.infer<typeof newPetFormSchema>;
 
 interface NewPetFormProps {
-  onFormComplete: () => void;
+  onCreated: (created: Pet) => void;
 }
 
-export default function NewPetForm({ onFormComplete }: NewPetFormProps) {
+export default function NewPetForm({ onCreated }: NewPetFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const api = useApi();
@@ -46,14 +46,7 @@ export default function NewPetForm({ onFormComplete }: NewPetFormProps) {
     mutationFn: async (newPet: NewPetFormInputs) => handleCreatePet(newPet),
     onSuccess: async (created: Pet) => {
       await queryClient.invalidateQueries({ queryKey: ["pets"] });
-      toast({
-        title: "Success",
-        description:
-          created.type !== "Unspecified"
-            ? `Your ${created.type.toLocaleLowerCase()}, ${created.name}, has been added to your kennel.`
-            : `${created.name} has been added!`,
-      });
-      onFormComplete();
+      onCreated(created);
     },
     onError: (error: Error) => {
       toast({
