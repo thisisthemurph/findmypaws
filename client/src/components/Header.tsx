@@ -23,7 +23,7 @@ export default function Header() {
           findmypaws
         </Link>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="icon" className="rounded-full">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -57,7 +57,7 @@ export default function Header() {
         <nav className="flex flex-col justify-center">
           <NavLink to="/">Home</NavLink>
           <SignedIn>
-            <NavLink to="/dashboard">Dashboard</NavLink>
+            <NavLink to="/dashboard">Your Kennel</NavLink>
           </SignedIn>
         </nav>
       </SheetContent>
