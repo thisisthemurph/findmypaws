@@ -10,18 +10,26 @@ import (
 	"os"
 	"paws/internal/store"
 	"paws/internal/types"
+	"paws/pkg/blight"
 	"time"
 )
 
 func NewPetsHandler(s *store.PostgresStore, logger *slog.Logger) PetsHandler {
+	b, err := blight.New("./avatars.db")
+	if err != nil {
+		panic(err)
+	}
+
 	return PetsHandler{
 		PetStore: s.PetStore,
+		Blight:   b,
 		Logger:   logger,
 	}
 }
 
 type PetsHandler struct {
 	PetStore store.PetStore
+	Blight   *blight.Client
 	Logger   *slog.Logger
 }
 
@@ -33,7 +41,17 @@ func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.POST("/pets/:id/tag", h.AddTag())
 	g.DELETE("/pets/:id/tag/:key", h.DeleteTag())
 	g.DELETE("/pets/:id", h.DeletePet())
-	g.PUT("/pets/:id/avatar", h.UpdateImage())
+	g.PUT("/pets/:id/avatar", h.UpdateImageBlight())
+	g.GET("/pets/:id/avatar", h.GetAvatar())
+	g.GET("/pets/test", h.Test())
+}
+
+func (h PetsHandler) Test() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{
+			"message": "this is only a test",
+		})
+	}
 }
 
 func (h PetsHandler) GetPetByID() echo.HandlerFunc {
@@ -327,5 +345,59 @@ func (h PetsHandler) UpdateImage() echo.HandlerFunc {
 		return c.JSON(http.StatusCreated, map[string]string{
 			"avatar_uri": avatarURI,
 		})
+	}
+}
+
+func (h PetsHandler) UpdateImageBlight() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user := clerkUser(c)
+		if !user.Authenticated {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+
+		petID, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+
+		avatar, err := c.FormFile("file")
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+
+		src, err := avatar.Open()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		defer src.Close()
+
+		path := petID.String()
+		if err := h.Blight.Add(path, src); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		return c.JSON(http.StatusCreated, map[string]string{
+			"avatar_uri": path,
+		})
+	}
+}
+
+func (h PetsHandler) GetAvatar() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+
+		r, err := h.Blight.Get(id.String())
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+
+		c.Response().Header().Set(echo.HeaderContentType, "image/jpeg")
+		if _, err := io.Copy(c.Response(), r.BLOB); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+		return nil
 	}
 }

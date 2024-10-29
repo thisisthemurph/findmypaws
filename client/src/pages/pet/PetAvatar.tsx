@@ -6,8 +6,16 @@ import { Label } from "@/components/ui/label.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
-function PetAvatar({ pet, changeAvatar }: { pet: Pet; changeAvatar: (file: File) => Promise<void> }) {
+interface PetAvatarProps {
+  pet: Pet;
+  changeAvatar: (file: File) => Promise<void>;
+}
+
+export default function PetAvatar({ pet, changeAvatar }: PetAvatarProps) {
   const [file, setFile] = useState<File | undefined>();
+  const [fileURL, setFileURL] = useState<string>(
+    `${import.meta.env.VITE_API_BASE_URL}/pets/${pet.id}/avatar?r=${Date.now()}`
+  );
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     event.preventDefault();
@@ -23,7 +31,7 @@ function PetAvatar({ pet, changeAvatar }: { pet: Pet; changeAvatar: (file: File)
       <Dialog>
         <DialogTrigger>
           <Avatar className="relative w-64 h-64 hover:shadow-lg">
-            <AvatarImage src={`${import.meta.env.VITE_BASE_URL}/${pet.avatar}`} />
+            <AvatarImage src={fileURL} />
             <AvatarFallback className="flex flex-col gap-4">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -52,6 +60,10 @@ function PetAvatar({ pet, changeAvatar }: { pet: Pet; changeAvatar: (file: File)
                 return;
               }
               await changeAvatar(file);
+              // The setTimeout is a hack to ensure the image has had enough time to change.
+              setTimeout(() => {
+                setFileURL(`${import.meta.env.VITE_API_BASE_URL}/pets/${pet.id}/avatar?t=${Date.now()}`);
+              }, 1000);
             }}
           >
             <Label htmlFor="avatar" className="hidden">
@@ -79,5 +91,3 @@ function PetAvatar({ pet, changeAvatar }: { pet: Pet; changeAvatar: (file: File)
     </section>
   );
 }
-
-export default PetAvatar;

@@ -37,7 +37,7 @@ export default function DashboardPage() {
               <PetCard key={pet.id} petId={pet.id}>
                 <PetCard.Header>
                   <Avatar>
-                    <AvatarImage src={`${import.meta.env.VITE_BASE_URL}/${pet.avatar}`} />
+                    <AvatarImage src={`${import.meta.env.VITE_API_BASE_URL}/pets/${pet.id}/avatar`} />
                     <AvatarFallback>{pet.name[0]}</AvatarFallback>
                   </Avatar>
                 </PetCard.Header>
