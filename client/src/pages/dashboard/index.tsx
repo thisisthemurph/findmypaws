@@ -26,7 +26,7 @@ export default function DashboardPage() {
   });
 
   return (
-    <>
+    <div className="p-4">
       <PageHeading heading="Your kennel" subheading="Maintain your pets in your kennel..." />
       <section className="flex flex-col sm:flex-row flex-wrap gap-4">
         {isLoading || !data ? (
@@ -69,6 +69,6 @@ export default function DashboardPage() {
           </DialogContent>
         </Dialog>
       </section>
-    </>
+    </div>
   );
 }

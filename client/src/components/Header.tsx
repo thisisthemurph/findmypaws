@@ -11,14 +11,12 @@ import {
 } from "@/components/ui/sheet.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { ReactNode } from "react";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 export default function Header() {
   return (
     <Sheet>
       <header className="flex justify-between items-center p-4 w-full">
-        <SignedIn>
-          <UserButton />
-        </SignedIn>
         <Link to="/" className="mb-0 text-lg text-slate-700 hover:text-blue-600">
           findmypaws
         </Link>
@@ -37,11 +35,18 @@ export default function Header() {
           </Button>
         </SheetTrigger>
       </header>
+      {/*https://discord.com/channels/856971667393609759/1300053615154565151*/}
       <SheetContent side="top">
         <SheetHeader>
           <div className="flex">
             <SignedIn>
-              <UserButton />
+              <UserButton
+                appearance={{
+                  elements: {
+                    userButtonPopoverCard: "pointer-events-auto",
+                  },
+                }}
+              />
             </SignedIn>
             <SignedOut>
               <SheetClose asChild>
@@ -52,7 +57,9 @@ export default function Header() {
             </SignedOut>
           </div>
           <SheetTitle>Findmypaws</SheetTitle>
-          <SheetDescription>This is the navigation.</SheetDescription>
+          <SheetDescription>
+            <VisuallyHidden.Root>This is the navigation</VisuallyHidden.Root>
+          </SheetDescription>
         </SheetHeader>
         <nav className="flex flex-col justify-center">
           <NavLink to="/">Home</NavLink>

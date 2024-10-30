@@ -79,6 +79,13 @@ function DetailsForm({ pet }: DetailsFormProps) {
 
   return (
     <Form {...form}>
+      <section className="flex flex-col gap-1 text-slate-800 text-sm">
+        <p>Keep information on {pet.name} up-to-date here!</p>
+        <p>
+          When your QR code is scanned, people will be directed to this page and will be able to see this
+          information.
+        </p>
+      </section>
       <form onSubmit={form.handleSubmit(onSubmitUpdate)} className="flex flex-col gap-4 mt-6">
         <FormField
           control={form.control}
