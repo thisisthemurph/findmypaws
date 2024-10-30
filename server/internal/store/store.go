@@ -15,12 +15,18 @@ type PetStore interface {
 	Delete(id uuid.UUID, userID string) error
 }
 
+type AlertStore interface {
+	Create(alert types.Alert) error
+}
+
 type PostgresStore struct {
-	PetStore PetStore
+	AlertStore AlertStore
+	PetStore   PetStore
 }
 
 func NewPostgresStore(db *sqlx.DB) *PostgresStore {
 	return &PostgresStore{
-		PetStore: NewPostgresPetStore(db),
+		AlertStore: NewPostgresAlertStore(db),
+		PetStore:   NewPostgresPetStore(db),
 	}
 }

@@ -23,7 +23,7 @@ func NewRouter(s *store.PostgresStore, clientBaseURL string, logger *slog.Logger
 	e.Validator = NewCustomValidator()
 	e.Static("/static", "./static")
 
-	e.Use(middleware.Logger())
+	//e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	configureCORS(e, clientBaseURL)
 
