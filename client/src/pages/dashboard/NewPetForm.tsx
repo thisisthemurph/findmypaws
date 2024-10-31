@@ -81,9 +81,9 @@ export default function NewPetForm({ onCreated }: NewPetFormProps) {
           name="type"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Type</FormLabel>
+              <FormLabel htmlFor="pet-type-selector">Type</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
+                <SelectTrigger id="pet-type-selector">
                   <SelectValue placeholder="Pet type" />
                 </SelectTrigger>
                 <SelectContent>

@@ -21,16 +21,18 @@ func NewPetsHandler(s *store.PostgresStore, logger *slog.Logger) PetsHandler {
 	}
 
 	return PetsHandler{
-		PetStore: s.PetStore,
-		Blight:   b,
-		Logger:   logger,
+		AlertStore: s.AlertStore,
+		PetStore:   s.PetStore,
+		Blight:     b,
+		Logger:     logger,
 	}
 }
 
 type PetsHandler struct {
-	PetStore store.PetStore
-	Blight   *blight.Client
-	Logger   *slog.Logger
+	AlertStore store.AlertStore
+	PetStore   store.PetStore
+	Blight     *blight.Client
+	Logger     *slog.Logger
 }
 
 func (h PetsHandler) MakeRoutes(g *echo.Group) {
@@ -44,6 +46,7 @@ func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.PUT("/pets/:id/avatar", h.UpdateImageBlight())
 	g.GET("/pets/:id/avatar", h.GetAvatar())
 	g.GET("/pets/test", h.Test())
+	g.POST("/pets/:id/alert", h.NewAlert())
 }
 
 func (h PetsHandler) Test() echo.HandlerFunc {
@@ -399,5 +402,51 @@ func (h PetsHandler) GetAvatar() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return nil
+	}
+}
+
+type NewAlertRequest struct {
+	UserId          string `json:"user_id"`
+	AnonymousUserId string `json:"anonymous_user_id"`
+}
+
+func (h PetsHandler) NewAlert() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var req NewAlertRequest
+		if err := c.Bind(&req); err != nil {
+			h.Logger.Error("error parsing request", "error", err)
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		if req.AnonymousUserId == "" && req.UserId == "" {
+			h.Logger.Error("one of the user ids is required", "req", req)
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		petId, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			h.Logger.Error("error parsing pet id", "error", err)
+			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+
+		alert := types.Alert{
+			UserId:          req.UserId,
+			AnonymousUserId: req.AnonymousUserId,
+			PetId:           petId,
+		}
+
+		if err := h.AlertStore.Create(alert); err != nil {
+			h.Logger.Error("error creating", "error", err)
+			if errors.Is(err, store.ErrAlertAlreadyExists) {
+				return c.JSON(http.StatusOK, map[string]interface{}{
+					"alert_created": false,
+				})
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		h.Logger.Info("alert", "petId", petId, "req", req, "alert", alert)
+
+		return c.JSON(http.StatusCreated, map[string]interface{}{
+			"alert_created": true,
+		})
 	}
 }
