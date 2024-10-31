@@ -10,12 +10,32 @@ import { ToastAction } from "@/components/ui/toast.tsx";
 import { useAuth } from "@clerk/clerk-react";
 import PublicDetails from "@/pages/pet/PublicDetails.tsx";
 import TagsSection from "@/pages/pet/TagsSection.tsx";
+import { useCallback, useEffect } from "react";
+import { v4 as uuidv4 } from "uuid";
+
+function getOrCreateAnonymousUserId(): string {
+  let userId = localStorage.getItem("anonymousUserId");
+  if (!userId) {
+    userId = uuidv4();
+    localStorage.setItem("anonymousUserId", userId);
+  }
+  return userId;
+}
+
+interface AlertRequest {
+  user_id?: string;
+  anonymous_user_id?: string;
+}
+
+interface AlertResponse {
+  alert_created: boolean;
+}
 
 export default function PetPage() {
   const { id } = useParams();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const auth = useAuth();
+  const { userId } = useAuth();
   const api = useApi();
   const queryClient = useQueryClient();
 
@@ -24,7 +44,34 @@ export default function PetPage() {
     queryFn: () => api<Pet>(`/pets/${id}`),
   });
 
-  const userIsOwner = auth.userId === pet?.user_id;
+  const userIsOwner = userId === pet?.user_id;
+
+  const sendAlert = useCallback(async (petId: string, userId: string | null | undefined) => {
+    const body: AlertRequest = {};
+    if (userId) {
+      body.user_id = userId;
+    } else {
+      body.anonymous_user_id = getOrCreateAnonymousUserId();
+    }
+    return await api<AlertResponse>(`/pets/${petId}/alert`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!pet?.id || !pet.user_id || userId === pet.user_id) return;
+    sendAlert(pet.id, userId)
+      .then((resp) => {
+        if (resp.alert_created) {
+          toast({
+            title: "Alert",
+            description: "An alert has been sent to the owner to inform them you have visited this page.",
+          });
+        }
+      })
+      .catch((err: Error) => console.error(err));
+  }, [userId, pet?.id, pet?.user_id, sendAlert]);
 
   const deleteMutation = useMutation({
     mutationFn: async () => {

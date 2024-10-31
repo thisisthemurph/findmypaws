@@ -436,13 +436,17 @@ func (h PetsHandler) NewAlert() echo.HandlerFunc {
 		if err := h.AlertStore.Create(alert); err != nil {
 			h.Logger.Error("error creating", "error", err)
 			if errors.Is(err, store.ErrAlertAlreadyExists) {
-				return c.NoContent(http.StatusOK)
+				return c.JSON(http.StatusOK, map[string]interface{}{
+					"alert_created": false,
+				})
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
 		h.Logger.Info("alert", "petId", petId, "req", req, "alert", alert)
 
-		return c.NoContent(http.StatusCreated)
+		return c.JSON(http.StatusCreated, map[string]interface{}{
+			"alert_created": true,
+		})
 	}
 }

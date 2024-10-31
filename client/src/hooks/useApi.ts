@@ -41,6 +41,15 @@ export const useApi = () => {
       throw new Error();
     }
 
-    return (await response.json()) as T extends void ? void : T;
+    try {
+      const result = await response.json();
+      return result as T extends void ? void : T;
+    } catch (ex) {
+      if (ex instanceof SyntaxError) {
+        // Unexpected end of JSON body, no content returned.
+        return undefined as T extends void ? void : T;
+      }
+      throw ex;
+    }
   };
 };
