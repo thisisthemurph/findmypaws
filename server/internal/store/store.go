@@ -16,7 +16,9 @@ type PetStore interface {
 }
 
 type AlertStore interface {
-	Create(alert types.Alert) error
+	Alerts(userID string) ([]types.AlertModel, error)
+	Create(alert types.AlertIdentifiers) error
+	MarkAllAsRead(userID string) error
 }
 
 type PostgresStore struct {

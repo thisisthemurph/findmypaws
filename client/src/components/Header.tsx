@@ -1,3 +1,4 @@
+import { Notification } from "@/api/types.ts";
 import { Link } from "react-router-dom";
 import { SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 import {
@@ -12,11 +13,22 @@ import {
 import { Button } from "@/components/ui/button.tsx";
 import { ReactNode } from "react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
+import { useApi } from "@/hooks/useApi.ts";
+import NotificationMenu from "@/components/NotificationMenu.tsx";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Header() {
+  const api = useApi();
+
+  const { data } = useQuery<Notification[]>({
+    queryKey: ["notifications"],
+    queryFn: () => api<Notification[]>("/user/alerts"),
+  });
+
   return (
     <Sheet>
       <header className="flex justify-between items-center p-4 w-full">
+        <NotificationMenu notifications={data ?? []} />
         <Link to="/" className="mb-0 text-lg text-slate-700 hover:text-blue-600">
           findmypaws
         </Link>

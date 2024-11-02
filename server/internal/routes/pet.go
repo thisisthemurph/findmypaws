@@ -427,8 +427,8 @@ func (h PetsHandler) NewAlert() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
 		}
 
-		alert := types.Alert{
-			UserId:          req.UserId,
+		alert := types.AlertIdentifiers{
+			UserID:          req.UserId,
 			AnonymousUserId: req.AnonymousUserId,
 			PetId:           petId,
 		}

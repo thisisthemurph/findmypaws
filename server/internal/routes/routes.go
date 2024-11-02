@@ -43,6 +43,7 @@ func NewRouter(s *store.PostgresStore, clientBaseURL string, logger *slog.Logger
 func getRouteHandlers(s *store.PostgresStore, logger *slog.Logger) []RouteMaker {
 	return []RouteMaker{
 		NewPetsHandler(s, logger),
+		NewUsersHandler(s, logger),
 	}
 }
 
