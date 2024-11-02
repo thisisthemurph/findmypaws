@@ -28,7 +28,9 @@ export default function Header() {
   return (
     <Sheet>
       <header className="flex justify-between items-center p-4 w-full">
-        <NotificationMenu notifications={data ?? []} />
+        <SignedIn>
+          <NotificationMenu notifications={data ?? []} />
+        </SignedIn>
         <Link to="/" className="mb-0 text-lg text-slate-700 hover:text-blue-600">
           findmypaws
         </Link>
