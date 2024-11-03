@@ -3,21 +3,20 @@ package application
 import (
 	"log/slog"
 	"os"
-
-	"paws/internal/routes"
-	"paws/internal/store"
+	"paws/internal/repository"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"paws/internal/routes"
 )
 
 type App struct {
-	Store  *store.PostgresStore
-	Router *routes.Router
-	Logger *slog.Logger
-	Config AppConfig
+	Repositories *repository.Repositories
+	Router       *routes.Router
+	Logger       *slog.Logger
+	Config       AppConfig
 }
 
 func NewApp() (*App, error) {
@@ -41,16 +40,16 @@ func NewApp() (*App, error) {
 func (app *App) Build() error {
 	app.Logger.Info("building app")
 
-	if err := app.configureStores(); err != nil {
+	if err := app.configureRepositories(); err != nil {
 		return err
 	}
 
-	r := routes.NewRouter(app.Store, app.Config.ClientBaseURL, app.Logger)
+	r := routes.NewRouter(app.Repositories, app.Config.ClientBaseURL, app.Logger)
 	app.Router = r
 	return nil
 }
 
-func (app *App) configureStores() error {
+func (app *App) configureRepositories() error {
 	app.Logger.Info("configuring stores")
 
 	db, err := sqlx.Open("postgres", app.Config.Database.ConnectionString)
@@ -58,6 +57,6 @@ func (app *App) configureStores() error {
 		return err
 	}
 
-	app.Store = store.NewPostgresStore(db)
+	app.Repositories = repository.NewRepositories(db)
 	return nil
 }

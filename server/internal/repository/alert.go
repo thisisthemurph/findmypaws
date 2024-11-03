@@ -1,22 +1,25 @@
-package store
+package repository
 
 import (
-	"errors"
 	"github.com/jmoiron/sqlx"
 	"paws/internal/types"
 )
 
-var ErrAlertAlreadyExists = errors.New("alert already exists")
-
-type PostgresAlertStore struct {
-	*sqlx.DB
+type AlertRepository interface {
+	List(userID string) ([]types.AlertModel, error)
+	Create(alert types.AlertIdentifiers) error
+	MarkAllAsRead(userID string) error
 }
 
-func NewPostgresAlertStore(db *sqlx.DB) *PostgresAlertStore {
-	return &PostgresAlertStore{db}
+type PostgresAlertRepository struct {
+	db *sqlx.DB
 }
 
-func (s PostgresAlertStore) Alerts(userID string) ([]types.AlertModel, error) {
+func NewPostgresAlertRepository(db *sqlx.DB) *PostgresAlertRepository {
+	return &PostgresAlertRepository{db}
+}
+
+func (r *PostgresAlertRepository) List(userID string) ([]types.AlertModel, error) {
 	stmt := `
 		select
 		    a.id, 
@@ -30,16 +33,16 @@ func (s PostgresAlertStore) Alerts(userID string) ([]types.AlertModel, error) {
 		where p.user_id = $1;`
 
 	var aa []types.AlertModel
-	if err := s.Select(&aa, stmt, userID); err != nil {
+	if err := r.db.Select(&aa, stmt, userID); err != nil {
 		return nil, err
 	}
 	return aa, nil
 }
 
-func (s PostgresAlertStore) Create(alert types.AlertIdentifiers) error {
-	if exists, err := s.alertExists(alert); err != nil || exists {
+func (r *PostgresAlertRepository) Create(alert types.AlertIdentifiers) error {
+	if exists, err := r.alertExists(alert); err != nil || exists {
 		if exists {
-			return ErrAlertAlreadyExists
+			return ErrAlreadyExists
 		}
 		return err
 	}
@@ -56,25 +59,25 @@ func (s PostgresAlertStore) Create(alert types.AlertIdentifiers) error {
 		anonymousUserId = &alert.AnonymousUserId
 	}
 
-	if _, err := s.Exec(stmt, userId, anonymousUserId, alert.PetId); err != nil {
+	if _, err := r.db.Exec(stmt, userId, anonymousUserId, alert.PetId); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s PostgresAlertStore) MarkAllAsRead(userID string) error {
+func (r *PostgresAlertRepository) MarkAllAsRead(userID string) error {
 	stmt := `
 		update alerts set seen_at = NOW()
 		from pets
 		where alerts.pet_id = pets.id
 		and pets.user_id = $1;`
 
-	_, err := s.Exec(stmt, userID)
+	_, err := r.db.Exec(stmt, userID)
 	return err
 }
 
-func (s PostgresAlertStore) alertExists(alert types.Alerter) (bool, error) {
+func (r *PostgresAlertRepository) alertExists(alert types.Alerter) (bool, error) {
 	stmt := `
 		select exists (
 			select 1 from alerts
@@ -85,7 +88,7 @@ func (s PostgresAlertStore) alertExists(alert types.Alerter) (bool, error) {
 		);`
 
 	var exists bool
-	if err := s.Get(&exists, stmt, alert.GetPetId(), alert.GetReporterUserId()); err != nil {
+	if err := r.db.Get(&exists, stmt, alert.GetPetId(), alert.GetReporterUserId()); err != nil {
 		return false, err
 	}
 	return exists, nil

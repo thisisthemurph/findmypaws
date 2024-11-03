@@ -7,32 +7,35 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
-	"paws/internal/store"
+	"paws/internal/repository"
 	"paws/internal/types"
 	"paws/pkg/blight"
 	"time"
 )
 
-func NewPetsHandler(s *store.PostgresStore, logger *slog.Logger) PetsHandler {
+func NewPetsHandler(
+	alertRepo repository.AlertRepository,
+	petRepo repository.PetRepository,
+	logger *slog.Logger,
+) PetsHandler {
 	b, err := blight.New("./avatars.db")
 	if err != nil {
 		panic(err)
 	}
 
 	return PetsHandler{
-		AlertStore: s.AlertStore,
-		PetStore:   s.PetStore,
-		Blight:     b,
-		Logger:     logger,
+		AlertRepo: alertRepo,
+		PetRepo:   petRepo,
+		Blight:    b,
+		Logger:    logger,
 	}
 }
 
 type PetsHandler struct {
-	AlertStore store.AlertStore
-	PetStore   store.PetStore
-	Blight     *blight.Client
-	Logger     *slog.Logger
+	AlertRepo repository.AlertRepository
+	PetRepo   repository.PetRepository
+	Blight    *blight.Client
+	Logger    *slog.Logger
 }
 
 func (h PetsHandler) MakeRoutes(g *echo.Group) {
@@ -43,18 +46,9 @@ func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.POST("/pets/:id/tag", h.AddTag())
 	g.DELETE("/pets/:id/tag/:key", h.DeleteTag())
 	g.DELETE("/pets/:id", h.DeletePet())
-	g.PUT("/pets/:id/avatar", h.UpdateImageBlight())
+	g.PUT("/pets/:id/avatar", h.UpdateAvatar())
 	g.GET("/pets/:id/avatar", h.GetAvatar())
-	g.GET("/pets/test", h.Test())
-	g.POST("/pets/:id/alert", h.NewAlert())
-}
-
-func (h PetsHandler) Test() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{
-			"message": "this is only a test",
-		})
-	}
+	g.POST("/pets/:id/alert", h.CreateNewAlertOnPetPageVisit())
 }
 
 func (h PetsHandler) GetPetByID() echo.HandlerFunc {
@@ -64,9 +58,9 @@ func (h PetsHandler) GetPetByID() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
 		}
 
-		pet, err := h.PetStore.Pet(id)
+		pet, err := h.PetRepo.Get(id)
 		if err != nil {
-			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
 				return echo.NewHTTPError(http.StatusNotFound, err)
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -81,7 +75,7 @@ func (h PetsHandler) ListPets() echo.HandlerFunc {
 		if !user.Authenticated {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
-		pets, err := h.PetStore.Pets(user.ID)
+		pets, err := h.PetRepo.List(user.ID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
@@ -109,7 +103,7 @@ func (h PetsHandler) CreateNewPet() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest)
 		}
 
-		currentPets, err := h.PetStore.Pets(user.ID)
+		currentPets, err := h.PetRepo.List(user.ID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
@@ -128,7 +122,7 @@ func (h PetsHandler) CreateNewPet() echo.HandlerFunc {
 			DOB:    req.DOB,
 		}
 
-		if err := h.PetStore.Create(pet); err != nil {
+		if err := h.PetRepo.Create(pet); err != nil {
 			h.Logger.Error("error creating pet", "error", err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
@@ -163,9 +157,9 @@ func (h PetsHandler) UpdatePet() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
 		}
 
-		pet, err := h.PetStore.Pet(petId)
+		pet, err := h.PetRepo.Get(petId)
 		if err != nil {
-			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
 				return echo.NewHTTPError(http.StatusNotFound, "The pet could not be found")
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -180,7 +174,7 @@ func (h PetsHandler) UpdatePet() echo.HandlerFunc {
 		pet.Blurb = req.Blurb
 		pet.DOB = req.DOB
 
-		if err := h.PetStore.Update(&pet, user.ID); err != nil {
+		if err := h.PetRepo.Update(&pet); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
@@ -213,9 +207,9 @@ func (h PetsHandler) AddTag() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest)
 		}
 
-		pet, err := h.PetStore.Pet(petID)
+		pet, err := h.PetRepo.Get(petID)
 		if err != nil {
-			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
 				return echo.NewHTTPError(http.StatusNotFound, err)
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -229,7 +223,7 @@ func (h PetsHandler) AddTag() echo.HandlerFunc {
 			pet.Tags = make(types.PetTags)
 		}
 		pet.Tags[req.Key] = req.Value
-		if err := h.PetStore.Update(&pet, user.ID); err != nil {
+		if err := h.PetRepo.Update(&pet); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.JSON(http.StatusOK, pet)
@@ -249,9 +243,9 @@ func (h PetsHandler) DeleteTag() echo.HandlerFunc {
 		}
 		tagKey := c.Param("key")
 
-		pet, err := h.PetStore.Pet(petID)
+		pet, err := h.PetRepo.Get(petID)
 		if err != nil {
-			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
 				return echo.NewHTTPError(http.StatusNotFound, err)
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -265,7 +259,7 @@ func (h PetsHandler) DeleteTag() echo.HandlerFunc {
 			pet.Tags = make(types.PetTags)
 		}
 		delete(pet.Tags, tagKey)
-		if err := h.PetStore.Update(&pet, user.ID); err != nil {
+		if err := h.PetRepo.Update(&pet); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.JSON(http.StatusOK, pet)
@@ -284,9 +278,9 @@ func (h PetsHandler) DeletePet() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
 		}
 
-		existingPet, err := h.PetStore.Pet(petID)
+		existingPet, err := h.PetRepo.Get(petID)
 		if err != nil {
-			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
 				return echo.NewHTTPError(http.StatusNotFound)
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -296,62 +290,14 @@ func (h PetsHandler) DeletePet() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusUnauthorized, "You do not have permission to update this pet")
 		}
 
-		if err := h.PetStore.Delete(petID, user.ID); err != nil {
+		if err := h.PetRepo.Delete(petID); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.NoContent(http.StatusNoContent)
 	}
 }
 
-func (h PetsHandler) UpdateImage() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		user := clerkUser(c)
-		if !user.Authenticated {
-			return echo.NewHTTPError(http.StatusUnauthorized)
-		}
-
-		petID, err := uuid.Parse(c.Param("id"))
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
-		}
-
-		avatar, err := c.FormFile("file")
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest)
-		}
-
-		userDir := "./static/usr/" + user.ID
-		if err := os.MkdirAll(userDir, os.ModePerm); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-
-		src, err := avatar.Open()
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest)
-		}
-		defer src.Close()
-		dst, err := os.Create(userDir + "/pet_avatar_" + petID.String() + ".jpg")
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest)
-		}
-		defer dst.Close()
-
-		if _, err = io.Copy(dst, src); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-
-		avatarURI := userDir[2:] + "/pet_avatar_" + petID.String() + ".jpg"
-		if err := h.PetStore.UpdateAvatar(avatarURI, petID, user.ID); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-
-		return c.JSON(http.StatusCreated, map[string]string{
-			"avatar_uri": avatarURI,
-		})
-	}
-}
-
-func (h PetsHandler) UpdateImageBlight() echo.HandlerFunc {
+func (h PetsHandler) UpdateAvatar() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		user := clerkUser(c)
 		if !user.Authenticated {
@@ -410,7 +356,7 @@ type NewAlertRequest struct {
 	AnonymousUserId string `json:"anonymous_user_id"`
 }
 
-func (h PetsHandler) NewAlert() echo.HandlerFunc {
+func (h PetsHandler) CreateNewAlertOnPetPageVisit() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req NewAlertRequest
 		if err := c.Bind(&req); err != nil {
@@ -433,9 +379,9 @@ func (h PetsHandler) NewAlert() echo.HandlerFunc {
 			PetId:           petId,
 		}
 
-		if err := h.AlertStore.Create(alert); err != nil {
+		if err := h.AlertRepo.Create(alert); err != nil {
 			h.Logger.Error("error creating", "error", err)
-			if errors.Is(err, store.ErrAlertAlreadyExists) {
+			if errors.Is(err, repository.ErrAlreadyExists) {
 				return c.JSON(http.StatusOK, map[string]interface{}{
 					"alert_created": false,
 				})

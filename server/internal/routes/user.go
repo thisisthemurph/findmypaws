@@ -6,22 +6,22 @@ import (
 	"github.com/labstack/echo/v4"
 	"log/slog"
 	"net/http"
-	"paws/internal/store"
+	"paws/internal/repository"
 	"paws/internal/types"
 )
 
-func NewUsersHandler(s *store.PostgresStore, logger *slog.Logger) *UsersHandler {
+func NewUsersHandler(alertRepo repository.AlertRepository, petRepo repository.PetRepository, logger *slog.Logger) *UsersHandler {
 	return &UsersHandler{
-		AlertStore: s.AlertStore,
-		PetStore:   s.PetStore,
-		Logger:     logger,
+		AlertRepo: alertRepo,
+		PetRepo:   petRepo,
+		Logger:    logger,
 	}
 }
 
 type UsersHandler struct {
-	AlertStore store.AlertStore
-	PetStore   store.PetStore
-	Logger     *slog.Logger
+	AlertRepo repository.AlertRepository
+	PetRepo   repository.PetRepository
+	Logger    *slog.Logger
 }
 
 func (h *UsersHandler) MakeRoutes(g *echo.Group) {
@@ -36,12 +36,12 @@ func (h *UsersHandler) ListNotifications() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
 
-		alerts, err := h.AlertStore.Alerts(user.ID)
+		alerts, err := h.AlertRepo.List(user.ID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
-		pets, err := h.PetStore.Pets(user.ID)
+		pets, err := h.PetRepo.List(user.ID)
 		petsLookup := make(map[uuid.UUID]string)
 		for _, pet := range pets {
 			petsLookup[pet.ID] = pet.Name
@@ -75,7 +75,7 @@ func (h *UsersHandler) MarkAllNotificationsAsRead() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
 
-		if err := h.AlertStore.MarkAllAsRead(user.ID); err != nil {
+		if err := h.AlertRepo.MarkAllAsRead(user.ID); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.NoContent(http.StatusNoContent)

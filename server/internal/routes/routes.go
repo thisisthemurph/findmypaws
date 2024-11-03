@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"paws/internal/auth"
-	"paws/internal/store"
+	"paws/internal/repository"
 )
 
 type RouteMaker interface {
@@ -18,7 +18,7 @@ type Router struct {
 	*echo.Echo
 }
 
-func NewRouter(s *store.PostgresStore, clientBaseURL string, logger *slog.Logger) *Router {
+func NewRouter(repos *repository.Repositories, clientBaseURL string, logger *slog.Logger) *Router {
 	e := echo.New()
 	e.Validator = NewCustomValidator()
 	e.Static("/static", "./static")
@@ -31,7 +31,7 @@ func NewRouter(s *store.PostgresStore, clientBaseURL string, logger *slog.Logger
 	baseGroup.Use(auth.WithEchoClerkMiddleware)
 	baseGroup.Use(auth.WithClerkUserInContextMiddleware)
 
-	for _, h := range getRouteHandlers(s, logger) {
+	for _, h := range getRouteHandlers(repos, logger) {
 		h.MakeRoutes(baseGroup)
 	}
 
@@ -40,10 +40,10 @@ func NewRouter(s *store.PostgresStore, clientBaseURL string, logger *slog.Logger
 	}
 }
 
-func getRouteHandlers(s *store.PostgresStore, logger *slog.Logger) []RouteMaker {
+func getRouteHandlers(repos *repository.Repositories, logger *slog.Logger) []RouteMaker {
 	return []RouteMaker{
-		NewPetsHandler(s, logger),
-		NewUsersHandler(s, logger),
+		NewPetsHandler(repos.AlertRepository, repos.PetRepository, logger),
+		NewUsersHandler(repos.AlertRepository, repos.PetRepository, logger),
 	}
 }
 
