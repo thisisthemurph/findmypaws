@@ -3,12 +3,12 @@ package application
 import (
 	"log/slog"
 	"os"
-	"paws/internal/repository"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"paws/internal/repository"
 	"paws/internal/routes"
 )
 

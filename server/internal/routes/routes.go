@@ -1,11 +1,12 @@
 package routes
 
 import (
+	"log/slog"
+	"net/http"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"log/slog"
-	"net/http"
 	"paws/internal/auth"
 	"paws/internal/repository"
 )
@@ -42,8 +43,8 @@ func NewRouter(repos *repository.Repositories, clientBaseURL string, logger *slo
 
 func getRouteHandlers(repos *repository.Repositories, logger *slog.Logger) []RouteMaker {
 	return []RouteMaker{
-		NewPetsHandler(repos.AlertRepository, repos.PetRepository, logger),
-		NewUsersHandler(repos.AlertRepository, repos.PetRepository, logger),
+		NewPetsHandler(repos.NotificationRepository, repos.PetRepository, logger),
+		NewUsersHandler(repos.NotificationRepository, repos.PetRepository, logger),
 	}
 }
 

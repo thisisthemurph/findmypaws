@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"paws/internal/types"
@@ -16,17 +17,17 @@ type PetRepository interface {
 	Delete(id uuid.UUID) error
 }
 
-type PostgresPetRepository struct {
+type postgresPetRepository struct {
 	db *sqlx.DB
 }
 
-func NewPostgresPetRepository(db *sqlx.DB) *PostgresPetRepository {
-	return &PostgresPetRepository{
+func NewPetRepository(db *sqlx.DB) PetRepository {
+	return &postgresPetRepository{
 		db: db,
 	}
 }
 
-func (r *PostgresPetRepository) Get(id uuid.UUID) (types.Pet, error) {
+func (r *postgresPetRepository) Get(id uuid.UUID) (types.Pet, error) {
 	stmt := `
 		select id, user_id, name, tags, dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
     	from pets
@@ -42,7 +43,7 @@ func (r *PostgresPetRepository) Get(id uuid.UUID) (types.Pet, error) {
 	return p, nil
 }
 
-func (r *PostgresPetRepository) List(userID string) ([]types.Pet, error) {
+func (r *postgresPetRepository) List(userID string) ([]types.Pet, error) {
 	stmt := `
 		select id, user_id, name, tags, dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
 		from pets
@@ -55,7 +56,7 @@ func (r *PostgresPetRepository) List(userID string) ([]types.Pet, error) {
 	return pp, nil
 }
 
-func (r *PostgresPetRepository) Create(p *types.Pet) error {
+func (r *postgresPetRepository) Create(p *types.Pet) error {
 	stmt := `
 		insert into pets (user_id, name, type, tags, dob) 
 		values ($1, $2, $3, $4, $5) 
@@ -67,7 +68,7 @@ func (r *PostgresPetRepository) Create(p *types.Pet) error {
 	return nil
 }
 
-func (r *PostgresPetRepository) Update(p *types.Pet) error {
+func (r *postgresPetRepository) Update(p *types.Pet) error {
 	stmt := `
 		update pets set 
 		    name = $1,
@@ -89,7 +90,7 @@ func (r *PostgresPetRepository) Update(p *types.Pet) error {
 	return nil
 }
 
-func (r *PostgresPetRepository) Delete(id uuid.UUID) error {
+func (r *postgresPetRepository) Delete(id uuid.UUID) error {
 	stmt := `delete from pets where id = $1;`
 	if _, err := r.db.Exec(stmt, id); err != nil {
 		return err

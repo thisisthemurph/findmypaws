@@ -2,22 +2,22 @@ package repository
 
 import (
 	"errors"
+
 	"github.com/jmoiron/sqlx"
 )
 
 var (
-	ErrNotFound      = errors.New("not found")
-	ErrAlreadyExists = errors.New("already exists")
+	ErrNotFound = errors.New("not found")
 )
 
 type Repositories struct {
-	AlertRepository AlertRepository
-	PetRepository   PetRepository
+	PetRepository          PetRepository
+	NotificationRepository NotificationRepository
 }
 
 func NewRepositories(db *sqlx.DB) *Repositories {
 	return &Repositories{
-		AlertRepository: NewPostgresAlertRepository(db),
-		PetRepository:   NewPostgresPetRepository(db),
+		PetRepository:          NewPetRepository(db),
+		NotificationRepository: NewNotificationRepository(db),
 	}
 }

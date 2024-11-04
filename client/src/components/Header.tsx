@@ -22,7 +22,7 @@ export default function Header() {
 
   const { data } = useQuery<Notification[]>({
     queryKey: ["notifications"],
-    queryFn: () => api<Notification[]>("/user/alerts"),
+    queryFn: async () => await api<Notification[]>("/user/notifications"),
   });
 
   return (

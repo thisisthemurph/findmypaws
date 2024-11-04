@@ -1,20 +1,22 @@
 package routes
 
 import (
+	"encoding/json"
 	"errors"
-	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"paws/internal/repository"
 	"paws/internal/types"
 	"paws/pkg/blight"
-	"time"
 )
 
 func NewPetsHandler(
-	alertRepo repository.AlertRepository,
+	notificationRepo repository.NotificationRepository,
 	petRepo repository.PetRepository,
 	logger *slog.Logger,
 ) PetsHandler {
@@ -24,18 +26,18 @@ func NewPetsHandler(
 	}
 
 	return PetsHandler{
-		AlertRepo: alertRepo,
-		PetRepo:   petRepo,
-		Blight:    b,
-		Logger:    logger,
+		NotificationRepo: notificationRepo,
+		PetRepo:          petRepo,
+		Blight:           b,
+		Logger:           logger,
 	}
 }
 
 type PetsHandler struct {
-	AlertRepo repository.AlertRepository
-	PetRepo   repository.PetRepository
-	Blight    *blight.Client
-	Logger    *slog.Logger
+	NotificationRepo repository.NotificationRepository
+	PetRepo          repository.PetRepository
+	Blight           *blight.Client
+	Logger           *slog.Logger
 }
 
 func (h PetsHandler) MakeRoutes(g *echo.Group) {
@@ -48,7 +50,7 @@ func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.DELETE("/pets/:id", h.DeletePet())
 	g.PUT("/pets/:id/avatar", h.UpdateAvatar())
 	g.GET("/pets/:id/avatar", h.GetAvatar())
-	g.POST("/pets/:id/alert", h.CreateNewAlertOnPetPageVisit())
+	g.POST("/pets/:id/alert", h.CreateNotificationOnPetPageVisit())
 }
 
 func (h PetsHandler) GetPetByID() echo.HandlerFunc {
@@ -352,47 +354,110 @@ func (h PetsHandler) GetAvatar() echo.HandlerFunc {
 }
 
 type NewAlertRequest struct {
-	UserId          string `json:"user_id"`
-	AnonymousUserId string `json:"anonymous_user_id"`
+	AlertingUserId          string `json:"user_id"`
+	AlertingAnonymousUserId string `json:"anonymous_user_id"`
 }
 
-func (h PetsHandler) CreateNewAlertOnPetPageVisit() echo.HandlerFunc {
-	return func(c echo.Context) error {
+func (a NewAlertRequest) IsAnonymous() bool {
+	return a.AlertingAnonymousUserId != "" && a.AlertingUserId == ""
+}
+
+func (h PetsHandler) CreateNotificationOnPetPageVisit() echo.HandlerFunc {
+	alertCreatedResponse := func(c echo.Context, created bool) error {
+		status := http.StatusOK
+		if created {
+			status = http.StatusCreated
+		}
+		return c.JSON(status, map[string]bool{
+			"alert_created": created,
+		})
+	}
+
+	processAndValidateRequest := func(c echo.Context) (NewAlertRequest, uuid.UUID, error) {
 		var req NewAlertRequest
 		if err := c.Bind(&req); err != nil {
-			h.Logger.Error("error parsing request", "error", err)
-			return echo.NewHTTPError(http.StatusBadRequest)
+			h.Logger.Error("error parsing request", "req", req, "error", err)
+			return req, uuid.Nil, echo.NewHTTPError(http.StatusBadRequest)
 		}
-		if req.AnonymousUserId == "" && req.UserId == "" {
-			h.Logger.Error("one of the user ids is required", "req", req)
-			return echo.NewHTTPError(http.StatusBadRequest)
+		if req.AlertingAnonymousUserId == "" && req.AlertingUserId == "" {
+			h.Logger.Error("cannot create notification; user_id or anonymous_user_id is required", "req", req)
+			return req, uuid.Nil, echo.NewHTTPError(http.StatusBadRequest)
 		}
-		petId, err := uuid.Parse(c.Param("id"))
+		petID, err := uuid.Parse(c.Param("id"))
 		if err != nil {
-			h.Logger.Error("error parsing pet id", "error", err)
-			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+			h.Logger.Error("error parsing petID", "petID", petID, "error", err)
+			return req, uuid.Nil, echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+		return req, petID, nil
+	}
+
+	makeSpottedPetNotificationModel := func(req NewAlertRequest, pet types.Pet) (types.NotificationModel, error) {
+		spotterName := ""
+		if !req.IsAnonymous() {
+			spotterName = "a registered user"
 		}
 
-		alert := types.AlertIdentifiers{
-			UserID:          req.UserId,
-			AnonymousUserId: req.AnonymousUserId,
-			PetId:           petId,
+		detail := types.SpottedPetNotificationDetail{
+			SpotterName: spotterName,
+			PetID:       pet.ID,
+			PetName:     pet.Name,
+			IsAnonymous: req.IsAnonymous(),
 		}
 
-		if err := h.AlertRepo.Create(alert); err != nil {
-			h.Logger.Error("error creating", "error", err)
-			if errors.Is(err, repository.ErrAlreadyExists) {
-				return c.JSON(http.StatusOK, map[string]interface{}{
-					"alert_created": false,
-				})
+		detailJSON, err := json.Marshal(detail)
+		if err != nil {
+			h.Logger.Error("failed to marshal notification detail JSON", "detail", detail, "error", err)
+			return types.NotificationModel{}, echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		return types.NotificationModel{
+			UserID: pet.UserID,
+			Type:   types.SpottedPetNotification,
+			Detail: detailJSON,
+		}, nil
+	}
+
+	return func(c echo.Context) error {
+		user := clerkUser(c)
+
+		req, petID, err := processAndValidateRequest(c)
+		if err != nil {
+			return err
+		}
+
+		pet, err := h.PetRepo.Get(petID)
+		if err != nil {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
+				h.Logger.Error("failed to send notification; pet not found", "petID", petID)
+				return echo.NewHTTPError(http.StatusNotFound)
 			}
+			h.Logger.Error("failed to get pet", "petID", petID, "error", err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
-		h.Logger.Info("alert", "petId", petId, "req", req, "alert", alert)
+		if pet.UserID == user.ID {
+			// Ensure the user is not creating alerts for themselves.
+			return alertCreatedResponse(c, false)
+		}
 
-		return c.JSON(http.StatusCreated, map[string]interface{}{
-			"alert_created": true,
-		})
+		model, err := makeSpottedPetNotificationModel(req, pet)
+		if err != nil {
+			return err
+		}
+
+		recentlyNotified, err := h.NotificationRepo.RecentlyNotified(model)
+		if err != nil {
+			h.Logger.Error("error determining if recently notified", "error", err)
+		}
+		if recentlyNotified {
+			return alertCreatedResponse(c, false)
+		}
+
+		if err := h.NotificationRepo.Create(&model); err != nil {
+			h.Logger.Error("error creating notification", "error", err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		return alertCreatedResponse(c, true)
 	}
 }

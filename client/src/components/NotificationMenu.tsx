@@ -107,7 +107,7 @@ function NotificationBucket({ name, notifications }: NotificationBucketProps) {
       <div className="p-2 tracking-widest font-semibold bg-slate-100 text-slate-700">{name}</div>
       {notifications.map((n) => (
         <Link
-          to={n.links.pet}
+          to={n.link}
           key={n.id}
           className="group relative flex gap-4 px-4 py-2 border-b hover:bg-slate-50 transition-colors"
         >
@@ -117,7 +117,6 @@ function NotificationBucket({ name, notifications }: NotificationBucketProps) {
           </div>
           <div className="flex flex-col gap-2 w-full">
             <p>{n.message}</p>
-            {/*<pre>{JSON.stringify(n, null, 2)}</pre>*/}
             <p title={format(n.created_at, "PPP")} className="text-slate-600 text-xs">
               {formatRelative(n.created_at, new Date())}
             </p>
