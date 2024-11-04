@@ -15,23 +15,11 @@ export type Pet = {
   updated_at: string;
 };
 
-export type Alert = {
-  id: number;
-  pet_id: string;
-  user_id: string;
-  anonymous_user_id: string;
-  created_at: string;
-};
-
-type SpottedPetLinks = {
-  pet: string;
-  [key: string]: string;
-};
-
 export type Notification = {
   id: string;
-  type: "spottedPet";
+  type: "spotted_pet";
   message: string;
+  link: string;
   seen: boolean;
   created_at: string;
-} & { type: "spottedPet"; links: SpottedPetLinks };
+};

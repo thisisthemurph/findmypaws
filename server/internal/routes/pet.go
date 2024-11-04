@@ -1,38 +1,43 @@
 package routes
 
 import (
+	"encoding/json"
 	"errors"
-	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
-	"paws/internal/store"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
+	"paws/internal/repository"
 	"paws/internal/types"
 	"paws/pkg/blight"
-	"time"
 )
 
-func NewPetsHandler(s *store.PostgresStore, logger *slog.Logger) PetsHandler {
+func NewPetsHandler(
+	notificationRepo repository.NotificationRepository,
+	petRepo repository.PetRepository,
+	logger *slog.Logger,
+) PetsHandler {
 	b, err := blight.New("./avatars.db")
 	if err != nil {
 		panic(err)
 	}
 
 	return PetsHandler{
-		AlertStore: s.AlertStore,
-		PetStore:   s.PetStore,
-		Blight:     b,
-		Logger:     logger,
+		NotificationRepo: notificationRepo,
+		PetRepo:          petRepo,
+		Blight:           b,
+		Logger:           logger,
 	}
 }
 
 type PetsHandler struct {
-	AlertStore store.AlertStore
-	PetStore   store.PetStore
-	Blight     *blight.Client
-	Logger     *slog.Logger
+	NotificationRepo repository.NotificationRepository
+	PetRepo          repository.PetRepository
+	Blight           *blight.Client
+	Logger           *slog.Logger
 }
 
 func (h PetsHandler) MakeRoutes(g *echo.Group) {
@@ -43,18 +48,9 @@ func (h PetsHandler) MakeRoutes(g *echo.Group) {
 	g.POST("/pets/:id/tag", h.AddTag())
 	g.DELETE("/pets/:id/tag/:key", h.DeleteTag())
 	g.DELETE("/pets/:id", h.DeletePet())
-	g.PUT("/pets/:id/avatar", h.UpdateImageBlight())
+	g.PUT("/pets/:id/avatar", h.UpdateAvatar())
 	g.GET("/pets/:id/avatar", h.GetAvatar())
-	g.GET("/pets/test", h.Test())
-	g.POST("/pets/:id/alert", h.NewAlert())
-}
-
-func (h PetsHandler) Test() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{
-			"message": "this is only a test",
-		})
-	}
+	g.POST("/pets/:id/alert", h.CreateNotificationOnPetPageVisit())
 }
 
 func (h PetsHandler) GetPetByID() echo.HandlerFunc {
@@ -64,9 +60,9 @@ func (h PetsHandler) GetPetByID() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
 		}
 
-		pet, err := h.PetStore.Pet(id)
+		pet, err := h.PetRepo.Get(id)
 		if err != nil {
-			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
 				return echo.NewHTTPError(http.StatusNotFound, err)
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -81,7 +77,7 @@ func (h PetsHandler) ListPets() echo.HandlerFunc {
 		if !user.Authenticated {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
-		pets, err := h.PetStore.Pets(user.ID)
+		pets, err := h.PetRepo.List(user.ID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
@@ -109,7 +105,7 @@ func (h PetsHandler) CreateNewPet() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest)
 		}
 
-		currentPets, err := h.PetStore.Pets(user.ID)
+		currentPets, err := h.PetRepo.List(user.ID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
@@ -128,7 +124,7 @@ func (h PetsHandler) CreateNewPet() echo.HandlerFunc {
 			DOB:    req.DOB,
 		}
 
-		if err := h.PetStore.Create(pet); err != nil {
+		if err := h.PetRepo.Create(pet); err != nil {
 			h.Logger.Error("error creating pet", "error", err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
@@ -163,9 +159,9 @@ func (h PetsHandler) UpdatePet() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
 		}
 
-		pet, err := h.PetStore.Pet(petId)
+		pet, err := h.PetRepo.Get(petId)
 		if err != nil {
-			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
 				return echo.NewHTTPError(http.StatusNotFound, "The pet could not be found")
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -180,7 +176,7 @@ func (h PetsHandler) UpdatePet() echo.HandlerFunc {
 		pet.Blurb = req.Blurb
 		pet.DOB = req.DOB
 
-		if err := h.PetStore.Update(&pet, user.ID); err != nil {
+		if err := h.PetRepo.Update(&pet); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
@@ -213,9 +209,9 @@ func (h PetsHandler) AddTag() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest)
 		}
 
-		pet, err := h.PetStore.Pet(petID)
+		pet, err := h.PetRepo.Get(petID)
 		if err != nil {
-			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
 				return echo.NewHTTPError(http.StatusNotFound, err)
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -229,7 +225,7 @@ func (h PetsHandler) AddTag() echo.HandlerFunc {
 			pet.Tags = make(types.PetTags)
 		}
 		pet.Tags[req.Key] = req.Value
-		if err := h.PetStore.Update(&pet, user.ID); err != nil {
+		if err := h.PetRepo.Update(&pet); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.JSON(http.StatusOK, pet)
@@ -249,9 +245,9 @@ func (h PetsHandler) DeleteTag() echo.HandlerFunc {
 		}
 		tagKey := c.Param("key")
 
-		pet, err := h.PetStore.Pet(petID)
+		pet, err := h.PetRepo.Get(petID)
 		if err != nil {
-			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
 				return echo.NewHTTPError(http.StatusNotFound, err)
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -265,7 +261,7 @@ func (h PetsHandler) DeleteTag() echo.HandlerFunc {
 			pet.Tags = make(types.PetTags)
 		}
 		delete(pet.Tags, tagKey)
-		if err := h.PetStore.Update(&pet, user.ID); err != nil {
+		if err := h.PetRepo.Update(&pet); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.JSON(http.StatusOK, pet)
@@ -284,9 +280,9 @@ func (h PetsHandler) DeletePet() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
 		}
 
-		existingPet, err := h.PetStore.Pet(petID)
+		existingPet, err := h.PetRepo.Get(petID)
 		if err != nil {
-			if notFound := errors.As(err, &store.ErrPetNotFound); notFound {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
 				return echo.NewHTTPError(http.StatusNotFound)
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -296,62 +292,14 @@ func (h PetsHandler) DeletePet() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusUnauthorized, "You do not have permission to update this pet")
 		}
 
-		if err := h.PetStore.Delete(petID, user.ID); err != nil {
+		if err := h.PetRepo.Delete(petID); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		return c.NoContent(http.StatusNoContent)
 	}
 }
 
-func (h PetsHandler) UpdateImage() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		user := clerkUser(c)
-		if !user.Authenticated {
-			return echo.NewHTTPError(http.StatusUnauthorized)
-		}
-
-		petID, err := uuid.Parse(c.Param("id"))
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
-		}
-
-		avatar, err := c.FormFile("file")
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest)
-		}
-
-		userDir := "./static/usr/" + user.ID
-		if err := os.MkdirAll(userDir, os.ModePerm); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-
-		src, err := avatar.Open()
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest)
-		}
-		defer src.Close()
-		dst, err := os.Create(userDir + "/pet_avatar_" + petID.String() + ".jpg")
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest)
-		}
-		defer dst.Close()
-
-		if _, err = io.Copy(dst, src); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-
-		avatarURI := userDir[2:] + "/pet_avatar_" + petID.String() + ".jpg"
-		if err := h.PetStore.UpdateAvatar(avatarURI, petID, user.ID); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-
-		return c.JSON(http.StatusCreated, map[string]string{
-			"avatar_uri": avatarURI,
-		})
-	}
-}
-
-func (h PetsHandler) UpdateImageBlight() echo.HandlerFunc {
+func (h PetsHandler) UpdateAvatar() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		user := clerkUser(c)
 		if !user.Authenticated {
@@ -406,47 +354,110 @@ func (h PetsHandler) GetAvatar() echo.HandlerFunc {
 }
 
 type NewAlertRequest struct {
-	UserId          string `json:"user_id"`
-	AnonymousUserId string `json:"anonymous_user_id"`
+	AlertingUserId          string `json:"user_id"`
+	AlertingAnonymousUserId string `json:"anonymous_user_id"`
 }
 
-func (h PetsHandler) NewAlert() echo.HandlerFunc {
-	return func(c echo.Context) error {
+func (a NewAlertRequest) IsAnonymous() bool {
+	return a.AlertingAnonymousUserId != "" && a.AlertingUserId == ""
+}
+
+func (h PetsHandler) CreateNotificationOnPetPageVisit() echo.HandlerFunc {
+	alertCreatedResponse := func(c echo.Context, created bool) error {
+		status := http.StatusOK
+		if created {
+			status = http.StatusCreated
+		}
+		return c.JSON(status, map[string]bool{
+			"alert_created": created,
+		})
+	}
+
+	processAndValidateRequest := func(c echo.Context) (NewAlertRequest, uuid.UUID, error) {
 		var req NewAlertRequest
 		if err := c.Bind(&req); err != nil {
-			h.Logger.Error("error parsing request", "error", err)
-			return echo.NewHTTPError(http.StatusBadRequest)
+			h.Logger.Error("error parsing request", "req", req, "error", err)
+			return req, uuid.Nil, echo.NewHTTPError(http.StatusBadRequest)
 		}
-		if req.AnonymousUserId == "" && req.UserId == "" {
-			h.Logger.Error("one of the user ids is required", "req", req)
-			return echo.NewHTTPError(http.StatusBadRequest)
+		if req.AlertingAnonymousUserId == "" && req.AlertingUserId == "" {
+			h.Logger.Error("cannot create notification; user_id or anonymous_user_id is required", "req", req)
+			return req, uuid.Nil, echo.NewHTTPError(http.StatusBadRequest)
 		}
-		petId, err := uuid.Parse(c.Param("id"))
+		petID, err := uuid.Parse(c.Param("id"))
 		if err != nil {
-			h.Logger.Error("error parsing pet id", "error", err)
-			return echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+			h.Logger.Error("error parsing petID", "petID", petID, "error", err)
+			return req, uuid.Nil, echo.NewHTTPError(http.StatusBadRequest, "bad identifier")
+		}
+		return req, petID, nil
+	}
+
+	makeSpottedPetNotificationModel := func(req NewAlertRequest, pet types.Pet) (types.NotificationModel, error) {
+		spotterName := ""
+		if !req.IsAnonymous() {
+			spotterName = "a registered user"
 		}
 
-		alert := types.AlertIdentifiers{
-			UserID:          req.UserId,
-			AnonymousUserId: req.AnonymousUserId,
-			PetId:           petId,
+		detail := types.SpottedPetNotificationDetail{
+			SpotterName: spotterName,
+			PetID:       pet.ID,
+			PetName:     pet.Name,
+			IsAnonymous: req.IsAnonymous(),
 		}
 
-		if err := h.AlertStore.Create(alert); err != nil {
-			h.Logger.Error("error creating", "error", err)
-			if errors.Is(err, store.ErrAlertAlreadyExists) {
-				return c.JSON(http.StatusOK, map[string]interface{}{
-					"alert_created": false,
-				})
+		detailJSON, err := json.Marshal(detail)
+		if err != nil {
+			h.Logger.Error("failed to marshal notification detail JSON", "detail", detail, "error", err)
+			return types.NotificationModel{}, echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		return types.NotificationModel{
+			UserID: pet.UserID,
+			Type:   types.SpottedPetNotification,
+			Detail: detailJSON,
+		}, nil
+	}
+
+	return func(c echo.Context) error {
+		user := clerkUser(c)
+
+		req, petID, err := processAndValidateRequest(c)
+		if err != nil {
+			return err
+		}
+
+		pet, err := h.PetRepo.Get(petID)
+		if err != nil {
+			if notFound := errors.As(err, &repository.ErrNotFound); notFound {
+				h.Logger.Error("failed to send notification; pet not found", "petID", petID)
+				return echo.NewHTTPError(http.StatusNotFound)
 			}
+			h.Logger.Error("failed to get pet", "petID", petID, "error", err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
-		h.Logger.Info("alert", "petId", petId, "req", req, "alert", alert)
+		if pet.UserID == user.ID {
+			// Ensure the user is not creating alerts for themselves.
+			return alertCreatedResponse(c, false)
+		}
 
-		return c.JSON(http.StatusCreated, map[string]interface{}{
-			"alert_created": true,
-		})
+		model, err := makeSpottedPetNotificationModel(req, pet)
+		if err != nil {
+			return err
+		}
+
+		recentlyNotified, err := h.NotificationRepo.RecentlyNotified(model)
+		if err != nil {
+			h.Logger.Error("error determining if recently notified", "error", err)
+		}
+		if recentlyNotified {
+			return alertCreatedResponse(c, false)
+		}
+
+		if err := h.NotificationRepo.Create(&model); err != nil {
+			h.Logger.Error("error creating notification", "error", err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		return alertCreatedResponse(c, true)
 	}
 }

@@ -6,7 +6,11 @@ export default function ClerkSignInPage() {
   const { user } = useUser();
 
   if (!user) {
-    return <SignIn path="/sign-in" />;
+    return (
+      <section className="flex justify-center my-12">
+        <SignIn path="/sign-in" />
+      </section>
+    );
   }
 
   navigate("/");
