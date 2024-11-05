@@ -27,7 +27,7 @@ export default function Header() {
 
   return (
     <Sheet>
-      <header className="flex justify-between items-center p-4 w-full">
+      <header className="flex justify-between items-center h-[5rem] px-4 w-full">
         <SignedIn>
           <NotificationMenu notifications={data ?? []} />
         </SignedIn>
