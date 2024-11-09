@@ -6,7 +6,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"log/slog"
 	"paws/internal/repository"
-	"paws/internal/types"
 	"sync"
 )
 
@@ -18,29 +17,17 @@ type Manager struct {
 	rooms map[string]*Room
 	sync.RWMutex
 
-	//handlers         map[EventType]EventHandler
 	conversationRepo repository.ConversationRepository
 	logger           *slog.Logger
 }
 
 func NewManager(db *sqlx.DB, logger *slog.Logger) *Manager {
-	m := &Manager{
-		rooms: make(RoomList),
-		//handlers:         make(map[EventType]EventHandler),
+	return &Manager{
+		rooms:            make(RoomList),
 		conversationRepo: repository.NewConversationsRepository(db),
 		logger:           logger,
 	}
-	//m.setUpHandlers()
-	return m
 }
-
-//func (m *Manager) HandleEvent(e Event, c *Client) error {
-//	handler, ok := m.handlers[e.Type]
-//	if !ok {
-//		return ErrUnsupportedEventType
-//	}
-//	return handler(e, c)
-//}
 
 func (m *Manager) GetOrCreateRoom(identifier uuid.UUID, participantID string) (*Room, error) {
 	m.Lock()
@@ -66,8 +53,4 @@ func (m *Manager) GetOrCreateRoom(identifier uuid.UUID, participantID string) (*
 	m.rooms[roomKey.String()] = r
 	go r.run()
 	return r, nil
-}
-
-func (m *Manager) LoadRecentMessages(conversationID int64) ([]types.Message, error) {
-	return m.conversationRepo.RecentMessages(conversationID, recentMessageFetchLimit)
 }

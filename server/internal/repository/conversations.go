@@ -6,12 +6,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"paws/internal/types"
+	"time"
 )
 
 type ConversationRepository interface {
 	Create(c *types.Conversation) error
 	GetOrCreate(identifier uuid.UUID, secondaryParticipantID string) (*types.Conversation, error)
 	List(participantID string) ([]types.Conversation, error)
+	ListHistoricalMessages(conversationID int64, toDate time.Time, lookbackDays int) ([]types.Message, error)
 	CreateMessage(m *types.Message) error
 	MarkMessageRead(messageId int64, participantID string) error
 	RecentMessages(conversationID int64, limit int) ([]types.Message, error)
@@ -94,6 +96,22 @@ func (r *postgresConversationRepository) CreateMessage(m *types.Message) error {
 		return err
 	}
 	return nil
+}
+
+func (r *postgresConversationRepository) ListHistoricalMessages(conversationID int64, toDate time.Time, lookbackDays int) ([]types.Message, error) {
+	q := `
+		select *
+		from messages
+		where conversation_id = $1
+		  and created_at between $2 and $3
+		order by created_at;`
+
+	var mm []types.Message
+	fromDate := toDate.AddDate(0, 0, -lookbackDays)
+	if err := r.db.Select(&mm, q, conversationID, fromDate, toDate); err != nil {
+		return nil, err
+	}
+	return mm, nil
 }
 
 func (r *postgresConversationRepository) RecentMessages(conversationID int64, limit int) ([]types.Message, error) {
