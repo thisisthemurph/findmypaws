@@ -23,3 +23,33 @@ export type Notification = {
   seen: boolean;
   created_at: string;
 };
+
+export type Message = {
+  id: number;
+  conversationId: number;
+  senderId: number;
+  recipientId: number;
+  text: string;
+  createdAt: string;
+  readAt: string;
+  outgoing: boolean;
+};
+
+type ConversationPetDetail = {
+  name: string;
+  type: string;
+};
+
+export type Conversation = {
+  id: number;
+  identifier: string;
+  pet: ConversationPetDetail;
+  primaryParticipantId: string;
+  secondaryParticipantId: string;
+  lastMessageAt: string;
+  createdAt: string;
+};
+
+export interface ConversationWithMessages extends Conversation {
+  messages: Message[];
+}

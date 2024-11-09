@@ -17,8 +17,11 @@ export const useApi = () => {
   return async <T = unknown>(url: string, options?: UseFetchOptions): Promise<T extends void ? void : T> => {
     const token = await getToken();
 
+    const anonymousUserId = localStorage.getItem("anonymousUserId");
+
     const headers = {
       Authorization: `Bearer ${token}`,
+      ...(anonymousUserId ? { AnonymousUserId: anonymousUserId } : {}),
       ...(options?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       ...options?.headers,
     };

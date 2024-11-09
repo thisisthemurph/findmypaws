@@ -1,13 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"log/slog"
 	"net/http"
-	"paws/internal/types"
 	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+	"paws/internal/types"
 )
 
 const (
@@ -105,6 +108,9 @@ func (r *Room) run() {
 		case client := <-r.join:
 			r.logger.Info("join", "Client", client)
 			r.addClient(client)
+			if err := r.EgressHistoricalMessages(client); err != nil {
+				r.logger.Error("failed to egress historical messages", "error", err)
+			}
 		case client := <-r.leave:
 			r.logger.Info("leave", "Client", client)
 			r.removeClient(client)
@@ -144,6 +150,31 @@ func (r *Room) PersistMessage(message NewMessageEvent) error {
 	}
 
 	return r.manager.conversationRepo.CreateMessage(m)
+}
+
+func (r *Room) EgressHistoricalMessages(client *Client) error {
+	messages, err := r.manager.conversationRepo.ListHistoricalMessages(r.key.ConversationID, time.Now(), 10)
+	if err != nil {
+		return fmt.Errorf("error querying historical messages: %w", err)
+	}
+
+	for _, message := range messages {
+		msg := NewMessageEvent{}
+		msg.Text = message.Text
+		msg.SenderID = message.SenderID
+		msg.Timestamp = message.CreatedAt
+		messageJSON, err := json.Marshal(msg)
+		if err != nil {
+			return fmt.Errorf("error marshalling message: %w", err)
+		}
+
+		client.egress <- Event{
+			Type:    EventTypeNewMessage,
+			Payload: messageJSON,
+		}
+	}
+
+	return nil
 }
 
 func (r *Room) setUpHandlers() {
