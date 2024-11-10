@@ -7,6 +7,7 @@ import { useAuth } from "@clerk/clerk-react";
 import useAnonymousUser from "@/hooks/useAnonymousUser.ts";
 import useChat from "@/components/useChat.ts";
 import MessageBucket from "@/pages/messenger/MessageBucket.tsx";
+import { useParams } from "react-router-dom";
 
 const formSchema = z.object({
   text: z.string().min(1, "Enter a message"),
@@ -15,9 +16,10 @@ const formSchema = z.object({
 type FormInputs = z.infer<typeof formSchema>;
 
 export default function ConversationPage() {
+  const { conversationIdentifier } = useParams();
   const { userId, isLoaded: isUserLoaded } = useAuth();
   const [anonymousUserId] = useAnonymousUser();
-  const { bucketedMessages, sendMessage } = useChat("49b6d8d8-816c-4628-9238-fba78ab18c90");
+  const { bucketedMessages, sendMessage } = useChat(conversationIdentifier!);
 
   const form = useForm<FormInputs>({
     resolver: zodResolver(formSchema),

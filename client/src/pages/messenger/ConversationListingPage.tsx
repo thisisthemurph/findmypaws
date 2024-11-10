@@ -22,12 +22,13 @@ export default function ConversationListingPage() {
       <section>
         {data.map((conversation) => (
           <Link
-            to={`/conversations/${conversation.id}`}
+            to={`/conversations/${conversation.identifier}`}
             key={conversation.id}
             className="block p-4 bg-slate-50 border-b"
           >
             <p>
-              A chat with an anonymous user about <strong>{conversation.pet.name}</strong>.
+              A chat with an anonymous user about <strong>{conversation.pet.name}</strong>.{" "}
+              {conversation.identifier}
             </p>
             <p className="text-right text-sm text-slate-800 mt-2">{conversation.lastMessageAt}</p>
           </Link>

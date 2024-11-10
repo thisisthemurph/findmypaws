@@ -51,7 +51,7 @@ export const router = createBrowserRouter([
         element: <ConversationListingPage />,
       },
       {
-        path: "/conversations/:conversationId",
+        path: "/conversations/:conversationIdentifier",
         element: <ConversationPage />,
       },
     ],
