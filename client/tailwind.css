@@ -70,4 +70,18 @@
   h2 {
     @apply text-xl font-semibold mb-4;
   }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: lightslategray transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: lightslategray;
+    border-radius: 20px;
+  }
 }

@@ -606,6 +606,20 @@ h2 {
   font-weight: 600;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: lightslategray transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: lightslategray;
+  border-radius: 20px;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -704,6 +718,14 @@ h2 {
   top: 50%;
 }
 
+.right-5 {
+  right: 1.25rem;
+}
+
+.top-5 {
+  top: 1.25rem;
+}
+
 .z-50 {
   z-index: 50;
 }
@@ -730,6 +752,11 @@ h2 {
 .my-12 {
   margin-top: 3rem;
   margin-bottom: 3rem;
+}
+
+.my-2 {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .mb-0 {
@@ -1026,6 +1053,10 @@ h2 {
           user-select: none;
 }
 
+.resize-none {
+  resize: none;
+}
+
 .flex-col {
   flex-direction: column;
 }
@@ -1136,6 +1167,10 @@ h2 {
 
 .rounded-sm {
   border-radius: calc(var(--radius) - 4px);
+}
+
+.rounded-xl {
+  border-radius: 0.75rem;
 }
 
 .border {
