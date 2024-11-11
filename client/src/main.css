@@ -726,6 +726,26 @@ h2 {
   top: 1.25rem;
 }
 
+.bottom-5 {
+  bottom: 1.25rem;
+}
+
+.bottom-10 {
+  bottom: 2.5rem;
+}
+
+.bottom-8 {
+  bottom: 2rem;
+}
+
+.bottom-7 {
+  bottom: 1.75rem;
+}
+
+.bottom-6 {
+  bottom: 1.5rem;
+}
+
 .z-50 {
   z-index: 50;
 }

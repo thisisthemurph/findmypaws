@@ -10,7 +10,7 @@ export default function ChatSubmitButton({ show }: ChatSubmitButtonProps) {
   }
 
   return (
-    <Button type="submit" variant="ghost" size="icon" className="absolute top-5 right-5 rounded-full">
+    <Button type="submit" variant="ghost" size="icon" className="absolute bottom-7 right-5 rounded-full">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         fill="none"

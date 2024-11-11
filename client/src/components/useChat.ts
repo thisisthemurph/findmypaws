@@ -72,6 +72,8 @@ const groupMessagesByTime = (messages: z.infer<typeof MessageSchema>[]) => {
       grouped[key].push(message);
     });
 
+  const customOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Today"];
+
   // Convert the object to an array and sort by descending date
   const sortedGroups: GroupedMessages = Object.keys(grouped)
     .map((key) => ({
@@ -81,8 +83,12 @@ const groupMessagesByTime = (messages: z.infer<typeof MessageSchema>[]) => {
       ),
     }))
     .sort((a, b) => {
-      if (a.key === "Today") return 1;
-      if (b.key === "Today") return -1;
+      const aIndex = customOrder.indexOf(a.key);
+      const bIndex = customOrder.indexOf(b.key);
+
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
       return new Date(b.messages[0].timestamp).getTime() - new Date(a.messages[0].timestamp).getTime();
     });
 
