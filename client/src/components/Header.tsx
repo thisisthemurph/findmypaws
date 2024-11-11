@@ -80,6 +80,7 @@ export default function Header() {
           <SignedIn>
             <NavLink to="/dashboard">Your Kennel</NavLink>
           </SignedIn>
+          <NavLink to="/conversations">Chats</NavLink>
         </nav>
       </SheetContent>
     </Sheet>

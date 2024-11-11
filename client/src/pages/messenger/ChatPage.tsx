@@ -14,7 +14,7 @@ const formSchema = z.object({
 
 type FormInputs = z.infer<typeof formSchema>;
 
-export default function ConversationPage() {
+export default function ChatPage() {
   const { conversationIdentifier } = useParams();
   const {
     title,

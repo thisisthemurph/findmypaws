@@ -7,8 +7,8 @@ import ClerkProfilePage from "@/pages/clerk/ClerkProfilePage.tsx";
 import DashboardPage from "@/pages/dashboard";
 import SignedInLayout from "@/layouts/signed-in-layout.tsx";
 import PetPage from "@/pages/pet";
-import ConversationPage from "@/pages/messenger/ConversationPage.tsx";
-import ConversationListingPage from "@/pages/messenger/ConversationListingPage.tsx";
+import ChatPage from "@/pages/messenger/ChatPage.tsx";
+import ChatListingPage from "@/pages/messenger/ChatListingPage.tsx";
 
 export const router = createBrowserRouter([
   {
@@ -48,11 +48,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "/conversations",
-        element: <ConversationListingPage />,
+        element: <ChatListingPage />,
       },
       {
         path: "/conversations/:conversationIdentifier",
-        element: <ConversationPage />,
+        element: <ChatPage />,
       },
     ],
   },
