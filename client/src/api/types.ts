@@ -48,6 +48,7 @@ export type Conversation = {
   secondaryParticipantId: string;
   lastMessageAt: string;
   createdAt: string;
+  title: string;
 };
 
 export interface ConversationWithMessages extends Conversation {

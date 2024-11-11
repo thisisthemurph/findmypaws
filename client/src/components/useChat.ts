@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import useParticipantId from "@/hooks/useParticipantId.ts";
+import { useApi } from "@/hooks/useApi.ts";
+import { Conversation } from "@/api/types.ts";
 
 const SendMessageSchema = z.object({
   text: z.string(),
@@ -89,20 +91,42 @@ const groupMessagesByTime = (messages: z.infer<typeof MessageSchema>[]) => {
 
 export default function useChat(roomIdentifier: string) {
   const [webSocket, setWebSocket] = useState<WebSocket | undefined>();
+  const [title, setTitle] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const participantId = useParticipantId();
+  const api = useApi();
+
+  const [isConversationDetailsLoaded, setIsConversationDetailsLoaded] = useState(false);
+  const [isWebSocketLoaded, setIsWebSocketLoaded] = useState(false);
 
   const bucketedMessages = groupMessagesByTime(messages);
+
+  useEffect(() => {
+    const getChatTitle = async (identifier: string) => {
+      const conversation = await api<Conversation>(`/conversations/${identifier}`);
+      return conversation.title;
+    };
+
+    getChatTitle(roomIdentifier)
+      .then((title) => {
+        setTitle(title);
+        setIsConversationDetailsLoaded(true);
+      })
+      .catch(() => {
+        console.error("failed to get chat name");
+        setIsConversationDetailsLoaded(false);
+      });
+  }, [roomIdentifier]);
 
   useEffect(() => {
     if (!participantId) return;
 
     const webSocketUrl = `ws://localhost:42096/room?r=${roomIdentifier}&pid=${participantId}`;
     const socket = new WebSocket(webSocketUrl);
-    socket.onopen = (event) => {
+    socket.onopen = () => {
       // Reset the messages to prevent loading the same ones again.
       setMessages([]);
-      console.log("WebSocket opened", event);
+      setIsWebSocketLoaded(true);
     };
 
     // New message received from the WebSocket.
@@ -128,11 +152,12 @@ export default function useChat(roomIdentifier: string) {
     };
 
     socket.onclose = (event) => {
-      console.log("Closing ws", event);
+      console.warn("Closing WebSocket", event);
+      setIsWebSocketLoaded(false);
     };
 
     socket.onerror = (event) => {
-      console.error("error on ws", event);
+      console.error("error on WebSocket", event);
     };
 
     setWebSocket(socket);
@@ -156,9 +181,11 @@ export default function useChat(roomIdentifier: string) {
 
   return {
     roomId: roomIdentifier,
+    title,
     participantId,
     messages,
     bucketedMessages,
     sendMessage,
+    isLoaded: isWebSocketLoaded && isConversationDetailsLoaded,
   };
 }

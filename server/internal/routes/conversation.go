@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"errors"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"log/slog"
@@ -28,6 +29,7 @@ type ConversationHandler struct {
 
 func (h *ConversationHandler) MakeRoutes(g *echo.Group) {
 	g.GET("/conversations", h.ListConversations())
+	g.GET("/conversations/:identifier", h.GetConversationByIdentifier())
 }
 
 type ConversationPetDetail struct {
@@ -37,10 +39,11 @@ type ConversationPetDetail struct {
 
 type ConversationResponse struct {
 	types.Conversation
-	Pet ConversationPetDetail `json:"pet"`
+	Pet   ConversationPetDetail `json:"pet"`
+	Title string                `json:"title"`
 }
 
-// ListConversations lists all conversations for the user or anonymous user.
+// ListConversations lists all conversations for the current conversation participant.
 func (h *ConversationHandler) ListConversations() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		participantID := getParticipantID(c)
@@ -74,7 +77,49 @@ func (h *ConversationHandler) ListConversations() echo.HandlerFunc {
 			response[i] = ConversationResponse{
 				Conversation: conversation,
 				Pet:          petDetail,
+				Title:        petDetail.Name,
 			}
+		}
+
+		return c.JSON(http.StatusOK, response)
+	}
+}
+
+func (h *ConversationHandler) GetConversationByIdentifier() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		participantID := getParticipantID(c)
+		identifier, err := uuid.Parse(c.Param("identifier"))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid identifier")
+		}
+
+		conversation, err := h.ConversationRepo.Get(identifier, participantID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return echo.NewHTTPError(http.StatusNotFound, "conversation not found")
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		primaryUserID := conversation.PrimaryParticipantID
+		pets, err := h.PetRepository.List(primaryUserID)
+		if err != nil {
+			h.Logger.Error("failed to list conversations", "error", err)
+		}
+
+		petLookup := make(map[uuid.UUID]ConversationPetDetail)
+		for _, pet := range pets {
+			petLookup[pet.ID] = ConversationPetDetail{
+				Name: pet.Name,
+				Type: string(*pet.Type),
+			}
+		}
+
+		petDetail := petLookup[conversation.Identifier]
+		response := ConversationResponse{
+			Conversation: *conversation,
+			Pet:          petDetail,
+			Title:        petDetail.Name,
 		}
 
 		return c.JSON(http.StatusOK, response)

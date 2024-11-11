@@ -11,6 +11,7 @@ import (
 
 type ConversationRepository interface {
 	Create(c *types.Conversation) error
+	Get(identifier uuid.UUID, participantID string) (*types.Conversation, error)
 	GetOrCreate(identifier uuid.UUID, secondaryParticipantID string) (*types.Conversation, error)
 	List(participantID string) ([]types.Conversation, error)
 	ListHistoricalMessages(conversationID int64, toDate time.Time, lookbackDays int) ([]types.Message, error)
@@ -50,6 +51,26 @@ func (r *postgresConversationRepository) Create(c *types.Conversation) error {
 		return err
 	}
 	return nil
+}
+
+func (r *postgresConversationRepository) Get(identifier uuid.UUID, participantID string) (*types.Conversation, error) {
+	stmt := `
+		select * 
+		from conversations
+		where identifier = $1 
+		  and (primary_participant_id = $2 or secondary_participant_id = $2);`
+
+	var conversation types.Conversation
+	if err := r.db.Get(&conversation, stmt, identifier, participantID); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+
+	if conversation.ID != 0 {
+		return &conversation, nil
+	}
+	return nil, ErrNotFound
 }
 
 // GetOrCreate finds an existing or creates a new conversation.
