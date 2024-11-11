@@ -2,11 +2,11 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form.tsx";
-import { Button } from "@/components/ui/button.tsx";
 import useChat from "@/components/useChat.ts";
 import MessageBucket from "@/pages/messenger/MessageBucket.tsx";
 import { useParams } from "react-router-dom";
 import ChatSubmitButton from "@/pages/messenger/ChatSubmitButton.tsx";
+import { useEffect, useRef } from "react";
 
 const formSchema = z.object({
   text: z.string().min(1, "Enter a message"),
@@ -24,6 +24,9 @@ export default function ConversationPage() {
     isLoaded: isChatLoaded,
   } = useChat(conversationIdentifier!);
 
+  const canSendMessage = isChatLoaded;
+  const chatSectionRef = useRef<HTMLDivElement>(null);
+
   const form = useForm<FormInputs>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -36,7 +39,11 @@ export default function ConversationPage() {
     form.reset();
   }
 
-  const canSendMessage = isChatLoaded;
+  useEffect(() => {
+    if (isChatLoaded && chatSectionRef.current) {
+      chatSectionRef.current.scrollTop = chatSectionRef.current.scrollHeight;
+    }
+  }, [isChatLoaded, bucketedMessages]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] bg-slate-50">
@@ -44,7 +51,7 @@ export default function ConversationPage() {
         <p className="font-semibold">{isChatLoaded ? title : "Loading"}</p>
       </section>
 
-      <section className="flex-grow p-4 overflow-y-auto">
+      <section ref={chatSectionRef} className="flex-grow p-4 overflow-y-auto">
         <div className="flex flex-col gap-1">
           {isChatLoaded &&
             participantId &&
