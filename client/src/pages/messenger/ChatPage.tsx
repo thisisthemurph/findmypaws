@@ -6,7 +6,8 @@ import useChat from "@/components/useChat.ts";
 import MessageBucket from "@/pages/messenger/MessageBucket.tsx";
 import { useParams } from "react-router-dom";
 import ChatSubmitButton from "@/pages/messenger/ChatSubmitButton.tsx";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button.tsx";
 
 const formSchema = z.object({
   text: z.string().min(1, "Enter a message"),
@@ -16,6 +17,7 @@ type FormInputs = z.infer<typeof formSchema>;
 
 export default function ChatPage() {
   const { conversationIdentifier } = useParams();
+  const [useLargeInput, setUseLargeInput] = useState(false);
   const {
     title,
     participantId,
@@ -66,17 +68,41 @@ export default function ChatPage() {
         </div>
       </section>
 
+      <section className="flex justify-end mx-4">
+        <Button
+          type="button"
+          variant="ghost"
+          title={`Use ${useLargeInput ? "normal" : "large"} input size`}
+          className={`py-0 text-slate-400 hover:bg-transparent ${useLargeInput && "rotate-180"}`}
+          onMouseDown={() => setUseLargeInput(!useLargeInput)}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+            className="size-4"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+          </svg>
+        </Button>
+      </section>
+
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="relative p-4">
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className={`relative px-4 pb-4 ${useLargeInput && "h-[28rem]"}`}
+        >
           <FormField
             control={form.control}
             name="text"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="space-y-0 h-full">
                 <FormControl>
                   <textarea
                     placeholder={isChatLoaded ? "Write a message..." : "Loading..."}
-                    className={`p-4 rounded-lg w-full resize-none shadow ${!canSendMessage && "disabled:bg-slate-100 shadow-none"}`}
+                    className={`p-4 rounded-lg w-full h-full resize-none shadow ${!canSendMessage && "disabled:bg-slate-100 shadow-none"}`}
                     disabled={!canSendMessage}
                     {...field}
                     onKeyDown={(e) => {
