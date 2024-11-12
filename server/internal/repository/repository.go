@@ -15,6 +15,7 @@ type Repositories struct {
 	PetRepository          PetRepository
 	NotificationRepository NotificationRepository
 	ConversationRepository ConversationRepository
+	UserRepository         UserRepository
 }
 
 func NewRepositories(db *sqlx.DB) *Repositories {
@@ -22,5 +23,6 @@ func NewRepositories(db *sqlx.DB) *Repositories {
 		PetRepository:          NewPetRepository(db),
 		NotificationRepository: NewNotificationRepository(db),
 		ConversationRepository: NewConversationsRepository(db),
+		UserRepository:         NewUserRepository(db),
 	}
 }

@@ -110,7 +110,9 @@ export default function useChat(roomIdentifier: string) {
   useEffect(() => {
     const getChatTitle = async (identifier: string) => {
       const conversation = await api<Conversation>(`/conversations/${identifier}`);
-      return conversation.title;
+      return conversation.title === conversation.pet.name
+        ? conversation.title
+        : `${conversation.title} (${conversation.pet.name})`;
     };
 
     getChatTitle(roomIdentifier)

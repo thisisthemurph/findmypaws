@@ -44,8 +44,8 @@ func NewRouter(repos *repository.Repositories, clientBaseURL string, logger *slo
 func getRouteHandlers(repos *repository.Repositories, logger *slog.Logger) []RouteMaker {
 	return []RouteMaker{
 		NewPetsHandler(repos.NotificationRepository, repos.PetRepository, logger),
-		NewUsersHandler(repos.NotificationRepository, repos.PetRepository, logger),
-		NewConversationHandler(repos.ConversationRepository, repos.PetRepository, logger),
+		NewUsersHandler(repos.UserRepository, repos.NotificationRepository, repos.PetRepository, logger),
+		NewConversationHandler(repos.ConversationRepository, repos.PetRepository, repos.UserRepository, logger),
 	}
 }
 

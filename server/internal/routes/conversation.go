@@ -13,10 +13,12 @@ import (
 func NewConversationHandler(
 	conversationRepo repository.ConversationRepository,
 	petRepo repository.PetRepository,
+	userRepo repository.UserRepository,
 	logger *slog.Logger) *ConversationHandler {
 	return &ConversationHandler{
 		ConversationRepo: conversationRepo,
 		PetRepository:    petRepo,
+		UserRepo:         userRepo,
 		Logger:           logger,
 	}
 }
@@ -24,10 +26,12 @@ func NewConversationHandler(
 type ConversationHandler struct {
 	PetRepository    repository.PetRepository
 	ConversationRepo repository.ConversationRepository
+	UserRepo         repository.UserRepository
 	Logger           *slog.Logger
 }
 
 func (h *ConversationHandler) MakeRoutes(g *echo.Group) {
+	g.POST("/conversations", h.CreateIfNotExists())
 	g.GET("/conversations", h.ListConversations())
 	g.GET("/conversations/:identifier", h.GetConversationByIdentifier())
 }
@@ -41,6 +45,30 @@ type ConversationResponse struct {
 	types.Conversation
 	Pet   ConversationPetDetail `json:"pet"`
 	Title string                `json:"title"`
+}
+
+type CreateConversationRequest struct {
+	Identifier    uuid.UUID `json:"identifier" validate:"required"`
+	ParticipantId string    `json:"participantId" validate:"required"`
+}
+
+func (h *ConversationHandler) CreateIfNotExists() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var req CreateConversationRequest
+		if err := c.Bind(&req); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		if err := c.Validate(req); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+
+		if _, err := h.ConversationRepo.GetOrCreate(req.Identifier, req.ParticipantId); err != nil {
+			h.Logger.Error("error getting/creating the conversation", "identifier", req.Identifier, "participant", req.ParticipantId, "error", err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		return c.NoContent(http.StatusNoContent)
+	}
 }
 
 // ListConversations lists all conversations for the current conversation participant.
@@ -116,10 +144,20 @@ func (h *ConversationHandler) GetConversationByIdentifier() echo.HandlerFunc {
 		}
 
 		petDetail := petLookup[conversation.Identifier]
+		conversationTitle := petDetail.Name
+		if participantID == conversation.PrimaryParticipantID {
+			secondaryParticipant, err := h.UserRepo.GetAnonymousUser(conversation.SecondaryParticipantID)
+			if err != nil {
+				h.Logger.Error("failed to get anonymous user", "error", err)
+			} else {
+				conversationTitle = secondaryParticipant.Name
+			}
+		}
+
 		response := ConversationResponse{
 			Conversation: *conversation,
 			Pet:          petDetail,
-			Title:        petDetail.Name,
+			Title:        conversationTitle,
 		}
 
 		return c.JSON(http.StatusOK, response)

@@ -54,3 +54,10 @@ export type Conversation = {
 export interface ConversationWithMessages extends Conversation {
   messages: Message[];
 }
+
+export interface AnonymousUser {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}

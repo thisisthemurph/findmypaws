@@ -89,7 +89,7 @@ func (r *postgresConversationRepository) GetOrCreate(identifier uuid.UUID, parti
 		return &conversation, nil
 	}
 
-	stmt = `select user_id from pets where id = $1;`
+	stmt = "select user_id from pets where id = $1;"
 	var primaryParticipantID string
 	if err := r.db.Get(&primaryParticipantID, stmt, identifier); err != nil {
 		return nil, err
