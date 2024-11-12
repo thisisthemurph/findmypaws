@@ -11,7 +11,7 @@ export default function MessageBubble({ message, direction }: MessageBubbleProps
 
   return (
     <p
-      className={`flex flex-col px-4 py-3 text-sm max-w-[80%] w-fit ${outgoing ? "self-end bg-[#7F00FF] text-white" : "bg-white"} rounded-xl shadow`}
+      className={`flex flex-col px-4 py-3 text-sm max-w-[80%] w-fit rounded-xl shadow whitespace-pre-line ${outgoing ? "self-end bg-[#7F00FF] text-white" : "bg-white"}`}
     >
       <span>{message.text}</span>
       <span className={`text-xs ${outgoing ? "text-white text-right" : "text-slate-700"}`}>
