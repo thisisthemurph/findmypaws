@@ -47,6 +47,7 @@ export default function ChatPage() {
       deleteDraft(conversationIdentifier);
     }
     form.setValue("text", "");
+    form.setFocus("text");
   }
 
   useEffect(() => {
@@ -57,8 +58,9 @@ export default function ChatPage() {
   useEffect(() => {
     if (isChatLoaded && chatSectionRef.current) {
       chatSectionRef.current.scrollTop = chatSectionRef.current.scrollHeight;
+      form.setFocus("text");
     }
-  }, [isChatLoaded, bucketedMessages]);
+  }, [isChatLoaded, bucketedMessages, form]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] bg-slate-50">
