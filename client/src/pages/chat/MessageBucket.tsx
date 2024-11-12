@@ -1,5 +1,5 @@
 import { Message } from "@/components/useChat.ts";
-import MessageBubble from "@/pages/messenger/MessageBubble";
+import MessageBubble from "@/pages/chat/MessageBubble";
 
 interface MessageBucketProps {
   name: string;

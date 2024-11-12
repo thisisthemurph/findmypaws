@@ -3,11 +3,12 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form.tsx";
 import useChat from "@/components/useChat.ts";
-import MessageBucket from "@/pages/messenger/MessageBucket.tsx";
+import MessageBucket from "@/pages/chat/MessageBucket.tsx";
 import { useParams } from "react-router-dom";
-import ChatSubmitButton from "@/pages/messenger/ChatSubmitButton.tsx";
+import ChatSubmitButton from "@/pages/chat/ChatSubmitButton.tsx";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
+import useDraftMessage from "@/pages/chat/hooks/useDraftMessage.ts";
 
 const formSchema = z.object({
   text: z.string().min(1, "Enter a message"),
@@ -18,6 +19,8 @@ type FormInputs = z.infer<typeof formSchema>;
 export default function ChatPage() {
   const { conversationIdentifier } = useParams();
   const [useLargeInput, setUseLargeInput] = useState(false);
+  const [getDraft, setDraft, deleteDraft] = useDraftMessage();
+
   const {
     title,
     participantId,
@@ -32,14 +35,24 @@ export default function ChatPage() {
   const form = useForm<FormInputs>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      text: "",
+      text: getDraft(conversationIdentifier!),
     },
   });
 
+  const currentMessage = form.watch("text");
+
   function onSubmit(data: FormInputs) {
     sendMessage(data.text);
-    form.reset();
+    if (conversationIdentifier) {
+      deleteDraft(conversationIdentifier);
+    }
+    form.setValue("text", "");
   }
+
+  useEffect(() => {
+    if (!conversationIdentifier) return;
+    setDraft(conversationIdentifier, currentMessage);
+  }, [conversationIdentifier, currentMessage]);
 
   useEffect(() => {
     if (isChatLoaded && chatSectionRef.current) {
@@ -80,7 +93,7 @@ export default function ChatPage() {
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
-            strokeWidth={2}
+            strokeWidth="2"
             stroke="currentColor"
             className="size-4"
           >

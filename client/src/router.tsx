@@ -7,8 +7,8 @@ import ClerkProfilePage from "@/pages/clerk/ClerkProfilePage.tsx";
 import DashboardPage from "@/pages/dashboard";
 import SignedInLayout from "@/layouts/signed-in-layout.tsx";
 import PetPage from "@/pages/pet";
-import ChatPage from "@/pages/messenger/ChatPage.tsx";
-import ChatListingPage from "@/pages/messenger/ChatListingPage.tsx";
+import ChatPage from "@/pages/chat/ChatPage.tsx";
+import ChatListingPage from "@/pages/chat/ChatListingPage.tsx";
 
 export const router = createBrowserRouter([
   {
