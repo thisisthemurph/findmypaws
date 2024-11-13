@@ -40,20 +40,23 @@ type ConversationPetDetail = {
   type: string;
 };
 
+type ConversationParticipant = {
+  id: string;
+  name: string;
+};
+
 export type Conversation = {
   id: number;
   identifier: string;
   pet: ConversationPetDetail;
   primaryParticipantId: string;
   secondaryParticipantId: string;
-  lastMessageAt: string;
+  participant: ConversationParticipant;
+  otherParticipant: ConversationParticipant;
+  lastMessageAt: string | null;
   createdAt: string;
   title: string;
 };
-
-export interface ConversationWithMessages extends Conversation {
-  messages: Message[];
-}
 
 export interface AnonymousUser {
   id: string;

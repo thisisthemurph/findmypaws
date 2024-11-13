@@ -97,7 +97,7 @@ const groupMessagesByTime = (messages: z.infer<typeof MessageSchema>[]) => {
 
 export default function useChat(roomIdentifier: string) {
   const [webSocket, setWebSocket] = useState<WebSocket | undefined>();
-  const [title, setTitle] = useState("");
+  const [conversation, setConversation] = useState<Conversation | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const participantId = useParticipantId();
   const api = useApi();
@@ -109,15 +109,12 @@ export default function useChat(roomIdentifier: string) {
 
   useEffect(() => {
     const getChatTitle = async (identifier: string) => {
-      const conversation = await api<Conversation>(`/conversations/${identifier}`);
-      return conversation.title === conversation.pet.name
-        ? conversation.title
-        : `${conversation.title} (${conversation.pet.name})`;
+      return await api<Conversation>(`/conversations/${identifier}`);
     };
 
     getChatTitle(roomIdentifier)
-      .then((title) => {
-        setTitle(title);
+      .then((conversation) => {
+        setConversation(conversation);
         setIsConversationDetailsLoaded(true);
       })
       .catch(() => {
@@ -189,11 +186,11 @@ export default function useChat(roomIdentifier: string) {
 
   return {
     roomId: roomIdentifier,
-    title,
     participantId,
     messages,
     bucketedMessages,
     sendMessage,
+    conversation,
     isLoaded: isWebSocketLoaded && isConversationDetailsLoaded,
   };
 }

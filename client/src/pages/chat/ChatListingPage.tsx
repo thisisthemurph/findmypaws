@@ -38,7 +38,11 @@ export default function ChatListingPage() {
 
       <section>
         {chats
-          .sort((a, b) => new Date(a.lastMessageAt).getTime() - new Date(b.lastMessageAt).getTime())
+          .sort(
+            (a, b) =>
+              new Date(a.lastMessageAt ?? a.createdAt).getTime() -
+              new Date(b.lastMessageAt ?? b.createdAt).getTime()
+          )
           .map((conversation) => (
             <Link
               to={`/conversations/${conversation.identifier}`}
@@ -46,14 +50,14 @@ export default function ChatListingPage() {
               className="block p-4 bg-slate-50 border-b"
             >
               <p>
-                A chat with an anonymous user about{" "}
+                A chat with an {conversation.otherParticipant.name} about{" "}
                 <span className="font-semibold">{conversation.pet.name}</span>.
               </p>
               <p
                 className="text-right text-sm text-slate-800 mt-2"
                 title={format(new Date(conversation.createdAt), "PPP")}
               >
-                {formatTimeAgo(new Date(conversation.lastMessageAt))}
+                {formatTimeAgo(new Date(conversation.lastMessageAt ?? conversation.createdAt))}
               </p>
             </Link>
           ))}

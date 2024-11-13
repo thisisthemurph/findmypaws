@@ -22,7 +22,7 @@ export default function ChatPage() {
   const [getDraft, setDraft, deleteDraft] = useDraftMessage();
 
   const {
-    title,
+    conversation,
     participantId,
     bucketedMessages,
     sendMessage,
@@ -65,7 +65,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] bg-slate-50">
       <section className="flex justify-center py-4">
-        <p className="font-semibold">{isChatLoaded ? title : "Loading"}</p>
+        <p className="font-semibold">{isChatLoaded && conversation ? conversation.title : "Loading"}</p>
       </section>
 
       <section ref={chatSectionRef} className="flex-grow p-4 overflow-y-auto">

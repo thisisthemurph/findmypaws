@@ -2,6 +2,7 @@ package routes
 
 import (
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"log/slog"
@@ -41,10 +42,17 @@ type ConversationPetDetail struct {
 	Type string `json:"type"`
 }
 
+type ConversationParticipant struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type ConversationResponse struct {
 	types.Conversation
-	Pet   ConversationPetDetail `json:"pet"`
-	Title string                `json:"title"`
+	Pet              ConversationPetDetail   `json:"pet"`
+	Title            string                  `json:"title"`
+	Participant      ConversationParticipant `json:"participant"`
+	OtherParticipant ConversationParticipant `json:"otherParticipant"`
 }
 
 type CreateConversationRequest struct {
@@ -85,6 +93,10 @@ func (h *ConversationHandler) ListConversations() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
+		if len(conversations) == 0 {
+			return c.JSON(http.StatusOK, []ConversationResponse{})
+		}
+
 		primaryUserID := conversations[0].PrimaryParticipantID
 		pets, err := h.PetRepository.List(primaryUserID)
 		if err != nil {
@@ -101,11 +113,19 @@ func (h *ConversationHandler) ListConversations() echo.HandlerFunc {
 
 		response := make([]ConversationResponse, len(conversations))
 		for i, conversation := range conversations {
-			petDetail, _ := petLookup[conversation.Identifier]
+			petDetail, petFound := petLookup[conversation.Identifier]
+			participant, otherParticipant := h.getParticipants(participantID, conversation, petLookup)
+			title := otherParticipant.Name
+			if petFound {
+				title = fmt.Sprintf("%s - %s", otherParticipant.Name, petDetail.Name)
+			}
+
 			response[i] = ConversationResponse{
-				Conversation: conversation,
-				Pet:          petDetail,
-				Title:        petDetail.Name,
+				Conversation:     conversation,
+				Pet:              petDetail,
+				Participant:      participant,
+				OtherParticipant: otherParticipant,
+				Title:            title,
 			}
 		}
 
@@ -115,13 +135,13 @@ func (h *ConversationHandler) ListConversations() echo.HandlerFunc {
 
 func (h *ConversationHandler) GetConversationByIdentifier() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		participantID := getParticipantID(c)
+		currentParticipantID := getParticipantID(c)
 		identifier, err := uuid.Parse(c.Param("identifier"))
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid identifier")
 		}
 
-		conversation, err := h.ConversationRepo.Get(identifier, participantID)
+		conversation, err := h.ConversationRepo.Get(identifier, currentParticipantID)
 		if err != nil {
 			if errors.Is(err, repository.ErrNotFound) {
 				return echo.NewHTTPError(http.StatusNotFound, "conversation not found")
@@ -129,39 +149,80 @@ func (h *ConversationHandler) GetConversationByIdentifier() echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
-		primaryUserID := conversation.PrimaryParticipantID
-		pets, err := h.PetRepository.List(primaryUserID)
-		if err != nil {
-			h.Logger.Error("failed to list conversations", "error", err)
-		}
+		petLookup := h.getPetLookup(conversation.PrimaryParticipantID)
 
-		petLookup := make(map[uuid.UUID]ConversationPetDetail)
-		for _, pet := range pets {
-			petLookup[pet.ID] = ConversationPetDetail{
-				Name: pet.Name,
-				Type: string(*pet.Type),
-			}
-		}
+		petDetail, petFound := petLookup[conversation.Identifier]
+		currentParticipant, otherParticipant := h.getParticipants(currentParticipantID, *conversation, petLookup)
 
-		petDetail := petLookup[conversation.Identifier]
-		conversationTitle := petDetail.Name
-		if participantID == conversation.PrimaryParticipantID {
-			secondaryParticipant, err := h.UserRepo.GetAnonymousUser(conversation.SecondaryParticipantID)
-			if err != nil {
-				h.Logger.Error("failed to get anonymous user", "error", err)
-			} else {
-				conversationTitle = secondaryParticipant.Name
-			}
+		title := otherParticipant.Name
+		if petFound {
+			title = fmt.Sprintf("%s - %s", otherParticipant.Name, petDetail.Name)
 		}
 
 		response := ConversationResponse{
-			Conversation: *conversation,
-			Pet:          petDetail,
-			Title:        conversationTitle,
+			Conversation:     *conversation,
+			Pet:              petDetail,
+			Participant:      currentParticipant,
+			OtherParticipant: otherParticipant,
+			Title:            title,
 		}
 
 		return c.JSON(http.StatusOK, response)
 	}
+}
+
+func (h *ConversationHandler) getParticipants(currentParticipantID string, conversation types.Conversation, petLookup map[uuid.UUID]ConversationPetDetail) (ConversationParticipant, ConversationParticipant) {
+	participant := ConversationParticipant{}
+	otherParticipant := ConversationParticipant{}
+
+	petDetail, petFound := petLookup[conversation.Identifier]
+	if !petFound {
+		h.Logger.Error("pet details not found", "conversation_id", conversation.Identifier)
+	}
+
+	// Fetch secondary participant name
+	secondaryParticipantName := "Anonymous"
+	secondaryParticipant, err := h.UserRepo.GetAnonymousUser(conversation.SecondaryParticipantID)
+	if err != nil {
+		h.Logger.Error("failed to get anonymous user", "error", err)
+	} else if secondaryParticipant.Name != "" {
+		secondaryParticipantName = secondaryParticipant.Name
+	}
+
+	if currentParticipantID == conversation.PrimaryParticipantID {
+		participant.ID = conversation.PrimaryParticipantID
+		participant.Name = "You"
+		otherParticipant.ID = conversation.SecondaryParticipantID
+		otherParticipant.Name = secondaryParticipantName
+		return participant, otherParticipant
+	}
+
+	participant.ID = conversation.SecondaryParticipantID
+	participant.Name = secondaryParticipantName
+	otherParticipant.ID = conversation.PrimaryParticipantID
+	if petFound {
+		otherParticipant.Name = petDetail.Name
+	} else {
+		otherParticipant.Name = "Owner"
+	}
+	return participant, otherParticipant
+}
+
+func (h *ConversationHandler) getPetLookup(primaryParticipantID string) map[uuid.UUID]ConversationPetDetail {
+	petLookup := make(map[uuid.UUID]ConversationPetDetail)
+	pets, err := h.PetRepository.List(primaryParticipantID)
+	if err != nil {
+		h.Logger.Error("failed to list conversations", "error", err)
+		return petLookup
+	}
+
+	for _, pet := range pets {
+		petLookup[pet.ID] = ConversationPetDetail{
+			Name: pet.Name,
+			Type: string(*pet.Type),
+		}
+	}
+	return petLookup
 }
 
 func getAnonymousUserID(c echo.Context) string {
