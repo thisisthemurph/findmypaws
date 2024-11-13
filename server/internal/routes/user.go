@@ -1,18 +1,23 @@
 package routes
 
 import (
-	"log/slog"
-	"net/http"
-	"sync"
-
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"log/slog"
+	"net/http"
 	"paws/internal/repository"
 	"paws/internal/types"
+	"sync"
 )
 
-func NewUsersHandler(notificationRepo repository.NotificationRepository, petRepo repository.PetRepository, logger *slog.Logger) *UsersHandler {
+func NewUsersHandler(
+	userRepo repository.UserRepository,
+	notificationRepo repository.NotificationRepository,
+	petRepo repository.PetRepository,
+	logger *slog.Logger,
+) *UsersHandler {
 	return &UsersHandler{
+		UserRepo:         userRepo,
 		NotificationRepo: notificationRepo,
 		PetRepo:          petRepo,
 		Logger:           logger,
@@ -20,6 +25,7 @@ func NewUsersHandler(notificationRepo repository.NotificationRepository, petRepo
 }
 
 type UsersHandler struct {
+	UserRepo         repository.UserRepository
 	NotificationRepo repository.NotificationRepository
 	PetRepo          repository.PetRepository
 	Logger           *slog.Logger
@@ -28,6 +34,36 @@ type UsersHandler struct {
 func (h *UsersHandler) MakeRoutes(g *echo.Group) {
 	g.GET("/user/notifications", h.ListNotifications())
 	g.POST("/user/notifications/read-all", h.MarkAllNotificationsAsSeen())
+	g.PUT("/user/anonymous/:id", h.UpdateAnonymousUser())
+}
+
+type UpdateAnonymousUserRequest struct {
+	Name string `json:"name" validate:"required"`
+}
+
+func (h *UsersHandler) UpdateAnonymousUser() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		anonymousUserId := c.Param("id")
+
+		var req UpdateAnonymousUserRequest
+		if err := c.Bind(&req); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		if err := c.Validate(req); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+
+		user := types.AnonymousUser{
+			ID:   anonymousUserId,
+			Name: req.Name,
+		}
+		if err := h.UserRepo.UpsertAnonymousUser(&user); err != nil {
+			h.Logger.Error("error upserting anonymous user", "error", err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+
+		return c.JSON(http.StatusOK, user)
+	}
 }
 
 func (h *UsersHandler) ListNotifications() echo.HandlerFunc {

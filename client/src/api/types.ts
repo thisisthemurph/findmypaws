@@ -23,3 +23,44 @@ export type Notification = {
   seen: boolean;
   created_at: string;
 };
+
+export type Message = {
+  id: number;
+  conversationId: number;
+  senderId: number;
+  recipientId: number;
+  text: string;
+  createdAt: string;
+  readAt: string;
+  outgoing: boolean;
+};
+
+type ConversationPetDetail = {
+  name: string;
+  type: string;
+};
+
+type ConversationParticipant = {
+  id: string;
+  name: string;
+};
+
+export type Conversation = {
+  id: number;
+  identifier: string;
+  pet: ConversationPetDetail;
+  primaryParticipantId: string;
+  secondaryParticipantId: string;
+  participant: ConversationParticipant;
+  otherParticipant: ConversationParticipant;
+  lastMessageAt: string | null;
+  createdAt: string;
+  title: string;
+};
+
+export interface AnonymousUser {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}

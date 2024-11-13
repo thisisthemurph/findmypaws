@@ -8,7 +8,7 @@ interface PageHeadingProps {
 
 export function PageHeading({ heading, subheading, children }: PageHeadingProps) {
   return (
-    <section className="flex justify-between items-start mb-6">
+    <section className="flex justify-between items-start p-4">
       <div>
         <h1 className="mb-0">{heading}</h1>
         {subheading && <p className="text-slate-700 text-sm">{subheading}</p>}
