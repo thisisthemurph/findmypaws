@@ -106,16 +106,16 @@ func (r *Room) run() {
 	for {
 		select {
 		case client := <-r.join:
-			r.logger.Info("join", "Client", client)
+			r.logger.Debug("join", "Client", client)
 			r.addClient(client)
 			if err := r.EgressHistoricalMessages(client); err != nil {
 				r.logger.Error("failed to egress historical messages", "error", err)
 			}
 		case client := <-r.leave:
-			r.logger.Info("leave", "Client", client)
+			r.logger.Debug("leave", "Client", client)
 			r.removeClient(client)
 		case message := <-r.forward:
-			r.logger.Info("forward", "roomID", r.key, "msg", message)
+			r.logger.Debug("forward", "roomID", r.key, "msg", message)
 			for client := range r.clients {
 				client.egress <- message
 			}

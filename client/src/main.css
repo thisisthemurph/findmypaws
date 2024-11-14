@@ -666,10 +666,6 @@ h2 {
   bottom: 0px;
 }
 
-.-top-10 {
-  top: -2.5rem;
-}
-
 .bottom-0 {
   bottom: 0px;
 }
@@ -690,10 +686,6 @@ h2 {
   left: 0.25rem;
 }
 
-.left-10 {
-  left: 2.5rem;
-}
-
 .left-2 {
   left: 0.5rem;
 }
@@ -708,10 +700,6 @@ h2 {
 
 .right-1 {
   right: 0.25rem;
-}
-
-.right-10 {
-  right: 2.5rem;
 }
 
 .right-2 {
@@ -1328,11 +1316,6 @@ h2 {
   background-color: rgb(248 250 252 / var(--tw-bg-opacity));
 }
 
-.bg-slate-500 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(100 116 139 / var(--tw-bg-opacity));
-}
-
 .bg-transparent {
   background-color: transparent;
 }
@@ -1594,6 +1577,11 @@ h2 {
 
 .text-primary-foreground {
   color: hsl(var(--primary-foreground));
+}
+
+.text-red-500 {
+  --tw-text-opacity: 1;
+  color: rgb(239 68 68 / var(--tw-text-opacity));
 }
 
 .text-secondary-foreground {

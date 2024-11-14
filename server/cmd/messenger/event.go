@@ -94,7 +94,7 @@ func (r *Room) EmojiReactHandler(e Event, c *Client) error {
 	if err := json.Unmarshal(e.Payload, &emojiEvent); err != nil {
 		return fmt.Errorf("bad payload for %v event: %w", EventTypeEmojiReact, err)
 	}
-	r.logger.Info("emoji", "event", emojiEvent)
+	r.logger.Debug("emoji", "event", emojiEvent)
 
 	message, err := r.manager.conversationRepo.GetMessage(emojiEvent.ConversationID, emojiEvent.MessageID)
 	if err != nil {
@@ -112,8 +112,7 @@ func (r *Room) EmojiReactHandler(e Event, c *Client) error {
 	}
 
 	var emoji *string
-	selectedEmoji, ok := emojiKeyLookup[emojiEvent.EmojiKey]
-	if ok {
+	if selectedEmoji, ok := emojiKeyLookup[emojiEvent.EmojiKey]; ok {
 		emoji = &selectedEmoji
 	}
 

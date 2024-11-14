@@ -217,7 +217,7 @@ export default function useChat(roomIdentifier: string) {
     webSocket.send(JSON.stringify(event));
   };
 
-  const react = (messageId: number, emojiKey: string) => {
+  const emojiReact = (messageId: number, emojiKey: string) => {
     if (!conversation) return;
     if (!webSocket) throw new Error("WebSocket not available");
     if (!participantId) throw new Error("Participant ID is undefined");
@@ -242,8 +242,9 @@ export default function useChat(roomIdentifier: string) {
     messages,
     bucketedMessages,
     sendMessage,
-    react,
+    emojiReact,
     conversation,
     isLoaded: isWebSocketLoaded && isConversationDetailsLoaded,
+    messageCount: messages.length,
   };
 }
