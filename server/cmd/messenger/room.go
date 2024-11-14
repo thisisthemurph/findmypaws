@@ -142,14 +142,15 @@ func (r *Room) removeClient(client *Client) {
 	}
 }
 
-func (r *Room) PersistMessage(message NewMessageEvent) error {
+func (r *Room) PersistMessage(message NewMessageEvent) (*types.Message, error) {
 	m := &types.Message{
 		ConversationID: r.key.ConversationID,
 		SenderID:       message.SenderID,
 		Text:           message.Text,
 	}
 
-	return r.manager.conversationRepo.CreateMessage(m)
+	err := r.manager.conversationRepo.CreateMessage(m)
+	return m, err
 }
 
 func (r *Room) EgressHistoricalMessages(client *Client) error {
@@ -160,9 +161,18 @@ func (r *Room) EgressHistoricalMessages(client *Client) error {
 
 	for _, message := range messages {
 		msg := NewMessageEvent{}
+		msg.ID = message.ID
 		msg.Text = message.Text
 		msg.SenderID = message.SenderID
 		msg.Timestamp = message.CreatedAt
+
+		if message.EmojiReaction != nil {
+			emoji, ok := emojiKeyLookup[*message.EmojiReaction]
+			if ok {
+				msg.EmojiReaction = &emoji
+			}
+		}
+
 		messageJSON, err := json.Marshal(msg)
 		if err != nil {
 			return fmt.Errorf("error marshalling message: %w", err)
@@ -179,6 +189,7 @@ func (r *Room) EgressHistoricalMessages(client *Client) error {
 
 func (r *Room) setUpHandlers() {
 	r.handlers[EventTypeSendMessage] = r.SendMessageHandler
+	r.handlers[EventTypeEmojiReact] = r.EmojiReactHandler
 }
 
 func checkOrigin(r *http.Request) bool {

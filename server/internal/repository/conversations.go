@@ -15,9 +15,10 @@ type ConversationRepository interface {
 	GetOrCreate(identifier uuid.UUID, secondaryParticipantID string) (*types.Conversation, error)
 	List(participantID string) ([]types.Conversation, error)
 	ListHistoricalMessages(conversationID int64, toDate time.Time, lookbackDays int) ([]types.Message, error)
+	GetMessage(conversationID, messageID int64) (*types.Message, error)
+	UpdateMessage(m *types.Message) error
 	CreateMessage(m *types.Message) error
 	MarkMessageRead(messageId int64, participantID string) error
-	RecentMessages(conversationID int64, limit int) ([]types.Message, error)
 }
 
 type postgresConversationRepository struct {
@@ -111,9 +112,29 @@ func (r *postgresConversationRepository) CreateMessage(m *types.Message) error {
 	stmt := `
 		insert into messages (conversation_id, sender_id, text)
 		values ($1, $2, $3)
-		returning id, created_at, read_at;`
+		returning id, emoji_reaction, created_at, read_at;`
 
 	if err := r.db.Get(m, stmt, m.ConversationID, m.SenderID, m.Text); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *postgresConversationRepository) GetMessage(conversationID, messageID int64) (*types.Message, error) {
+	stmt := `select * from messages where conversation_id = $1 and id = $2;`
+	var m types.Message
+	if err := r.db.Get(&m, stmt, conversationID, messageID); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &m, nil
+}
+
+func (r *postgresConversationRepository) UpdateMessage(m *types.Message) error {
+	stmt := "update messages set emoji_reaction = $1 where id = $2 returning emoji_reaction;"
+	if err := r.db.Get(m, stmt, m.EmojiReaction, m.ID); err != nil {
 		return err
 	}
 	return nil
@@ -133,26 +154,6 @@ func (r *postgresConversationRepository) ListHistoricalMessages(conversationID i
 		return nil, err
 	}
 	return mm, nil
-}
-
-func (r *postgresConversationRepository) RecentMessages(conversationID int64, limit int) ([]types.Message, error) {
-	q := `
-		with recent_messages as (
-			select *
-			from messages
-			where conversation_id = $1
-			order by created_at desc
-			limit $2
-		)
-		select *
-		from recent_messages
-		order by created_at;`
-
-	var messages []types.Message
-	if err := r.db.Select(&messages, q, conversationID, limit); err != nil {
-		return nil, err
-	}
-	return messages, nil
 }
 
 func (r *postgresConversationRepository) MarkMessageRead(messageID int64, participantID string) error {

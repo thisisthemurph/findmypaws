@@ -26,6 +26,7 @@ export default function ChatPage() {
     participantId,
     bucketedMessages,
     sendMessage,
+    react,
     isLoaded: isChatLoaded,
   } = useChat(conversationIdentifier!);
 
@@ -78,6 +79,7 @@ export default function ChatPage() {
                 name={bucket.key}
                 messages={bucket.messages}
                 currentUserId={participantId}
+                handleEmojiReact={(messageId, emojiKey) => react(messageId, emojiKey)}
               />
             ))}
         </div>
