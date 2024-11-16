@@ -19,6 +19,7 @@ type Message struct {
 	ConversationID int64      `db:"conversation_id" json:"conversationId"`
 	SenderID       string     `db:"sender_id" json:"senderId"`
 	Text           string     `db:"text" json:"text"`
+	EmojiReaction  *string    `db:"emoji_reaction" json:"emojiReaction"`
 	CreatedAt      time.Time  `db:"created_at" json:"createdAt"`
 	ReadAt         *time.Time `db:"read_at" json:"readAt"`
 }

@@ -17,6 +17,7 @@ create table if not exists messages (
     conversation_id bigserial references conversations (id) on delete cascade,
     sender_id text not null,
     text text not null check (char_length(text) <= 500),
+    emoji_reaction text,
     created_at timestamp with time zone not null default now(),
     read_at timestamp with time zone default null
 );

@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form.tsx";
-import useChat from "@/components/useChat.ts";
+import useChat from "@/pages/chat/hooks/useChat.ts";
 import MessageBucket from "@/pages/chat/MessageBucket.tsx";
 import { useParams } from "react-router-dom";
 import ChatSubmitButton from "@/pages/chat/ChatSubmitButton.tsx";
@@ -20,12 +20,15 @@ export default function ChatPage() {
   const { conversationIdentifier } = useParams();
   const [useLargeInput, setUseLargeInput] = useState(false);
   const [getDraft, setDraft, deleteDraft] = useDraftMessage();
+  const [openEmojiBarMessageId, setOpenEmojiBarMessageId] = useState<number | undefined>();
 
   const {
     conversation,
     participantId,
     bucketedMessages,
     sendMessage,
+    emojiReact,
+    messageCount,
     isLoaded: isChatLoaded,
   } = useChat(conversationIdentifier!);
 
@@ -60,7 +63,7 @@ export default function ChatPage() {
       chatSectionRef.current.scrollTop = chatSectionRef.current.scrollHeight;
       form.setFocus("text");
     }
-  }, [isChatLoaded, bucketedMessages, form]);
+  }, [isChatLoaded, messageCount]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] bg-slate-50">
@@ -78,6 +81,10 @@ export default function ChatPage() {
                 name={bucket.key}
                 messages={bucket.messages}
                 currentUserId={participantId}
+                openEmojiBarMessageId={openEmojiBarMessageId}
+                onOpenEmojiBar={(messageId: number) => setOpenEmojiBarMessageId(messageId)}
+                onCloseEmojiBar={() => setOpenEmojiBarMessageId(undefined)}
+                handleEmojiReact={(messageId, emojiKey) => emojiReact(messageId, emojiKey)}
               />
             ))}
         </div>

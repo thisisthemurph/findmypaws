@@ -10,23 +10,47 @@ const SendMessageSchema = z.object({
 });
 
 const MessageSchema = z.object({
+  id: z.number(),
   text: z.string(),
+  emoji: z.string().nullable(),
   senderId: z.string(),
   timestamp: z.string(),
 });
 
+const EmojiReactSchema = z.object({
+  conversationId: z.number(),
+  messageId: z.number(),
+  emojiKey: z.string(),
+});
+
+const NewEmojiReactSchema = z.object({
+  messageId: z.number(),
+  emoji: z.string().nullable(),
+});
+
 const MessageEventSchema = z.discriminatedUnion("type", [
+  // Event for sending a new message
   z.object({
     type: z.literal("send_message"),
     payload: SendMessageSchema,
   }),
+  // Event for incoming messages
   z.object({
     type: z.literal("new_message"),
     payload: MessageSchema,
   }),
+  // Event for sending an emoji reaction
+  z.object({
+    type: z.literal("emoji_react"),
+    payload: EmojiReactSchema,
+  }),
+  // Event for incoming emoji reactions
+  z.object({
+    type: z.literal("new_emoji_react"),
+    payload: NewEmojiReactSchema,
+  }),
 ]);
 
-export type SendMessage = z.infer<typeof SendMessageSchema>;
 export type Message = z.infer<typeof MessageSchema>;
 export type MessageEvent = z.infer<typeof MessageEventSchema>;
 
@@ -146,10 +170,19 @@ export default function useChat(roomIdentifier: string) {
       const receivedEvent = result.data;
       switch (receivedEvent.type) {
         case "new_message":
-          setMessages((prev) => [...prev, receivedEvent.payload]);
+          setMessages((previousMessages) => [...previousMessages, receivedEvent.payload]);
           break;
         case "send_message":
           console.warn("SendMessage event received, but no action taken.");
+          break;
+        case "new_emoji_react":
+          setMessages((previousMessages) =>
+            previousMessages.map((message) =>
+              message.id === receivedEvent.payload.messageId
+                ? { ...message, emoji: receivedEvent.payload.emoji }
+                : message
+            )
+          );
           break;
         default:
           console.error("Unsupported event type", receivedEvent);
@@ -184,13 +217,34 @@ export default function useChat(roomIdentifier: string) {
     webSocket.send(JSON.stringify(event));
   };
 
+  const emojiReact = (messageId: number, emojiKey: string) => {
+    if (!conversation) return;
+    if (!webSocket) throw new Error("WebSocket not available");
+    if (!participantId) throw new Error("Participant ID is undefined");
+
+    console.log({ conversationId: conversation.id, messageId, emojiKey });
+
+    const event: MessageEvent = {
+      type: "emoji_react",
+      payload: {
+        conversationId: conversation.id,
+        messageId: messageId,
+        emojiKey: emojiKey,
+      },
+    };
+
+    webSocket.send(JSON.stringify(event));
+  };
+
   return {
     roomId: roomIdentifier,
     participantId,
     messages,
     bucketedMessages,
     sendMessage,
+    emojiReact,
     conversation,
     isLoaded: isWebSocketLoaded && isConversationDetailsLoaded,
+    messageCount: messages.length,
   };
 }
