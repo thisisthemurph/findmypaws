@@ -1,6 +1,9 @@
 package main
 
-import "paws/internal/application"
+import (
+	"net/http"
+	"paws/internal/application"
+)
 
 func main() {
 	app, err := application.NewApp()
@@ -12,5 +15,5 @@ func main() {
 		panic(err)
 	}
 
-	app.Router.Logger.Fatal(app.Router.Start(app.Config.Host))
+	http.ListenAndServe(app.Config.Host, app.ServerMux)
 }

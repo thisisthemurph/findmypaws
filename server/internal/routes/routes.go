@@ -3,87 +3,90 @@ package routes
 import (
 	"log/slog"
 	"net/http"
-
-	"github.com/go-playground/validator/v10"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"paws/internal/auth"
+	"paws/internal/chat"
+
 	"paws/internal/repository"
 )
 
-type RouteMaker interface {
-	MakeRoutes(e *echo.Group)
+type MiddlewareFunc func(http.HandlerFunc) http.HandlerFunc
+
+type RouteRegister interface {
+	RegisterRoutes(mux *http.ServeMux, middlewareFunc MiddlewareFunc)
 }
 
-type Router struct {
-	*echo.Echo
-}
+func BuildRoutesServerMux(
+	repos *repository.Repositories,
+	manager *chat.Manager,
+	clientBaseURL string,
+	logger *slog.Logger,
+) *http.ServeMux {
+	mux := http.NewServeMux()
 
-func NewRouter(repos *repository.Repositories, clientBaseURL string, logger *slog.Logger) *Router {
-	e := echo.New()
-	e.Validator = NewCustomValidator()
-	e.Static("/static", "./static")
+	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
+	mux.Handle("/static/", staticHandler)
 
-	//e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-	configureCORS(e, clientBaseURL)
-
-	baseGroup := e.Group("/api/v1")
-	baseGroup.Use(auth.WithEchoClerkMiddleware)
-	baseGroup.Use(auth.WithClerkUserInContextMiddleware)
-
-	for _, h := range getRouteHandlers(repos, logger) {
-		h.MakeRoutes(baseGroup)
-	}
-
-	return &Router{
-		Echo: e,
-	}
-}
-
-func getRouteHandlers(repos *repository.Repositories, logger *slog.Logger) []RouteMaker {
-	return []RouteMaker{
-		NewPetsHandler(repos.NotificationRepository, repos.PetRepository, logger),
+	handlers := []RouteRegister{
 		NewUsersHandler(repos.UserRepository, repos.NotificationRepository, repos.PetRepository, logger),
+		NewPetsHandler(repos.NotificationRepository, repos.PetRepository, logger),
 		NewConversationHandler(repos.ConversationRepository, repos.PetRepository, repos.UserRepository, logger),
+		NewChatHandler(manager, logger),
+	}
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Origin", clientBaseURL)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, X-Requested-With, AnonymousUserId")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		http.NotFound(w, r)
+	})
+
+	applyMiddlewareFunc := applyMiddlewareFactory(clientBaseURL)
+
+	for _, h := range handlers {
+		h.RegisterRoutes(mux, applyMiddlewareFunc)
+	}
+
+	return mux
+}
+
+// applyMiddlewareFactory creates a single MiddlewareFunc function for applying middleware to all handlers.
+func applyMiddlewareFactory(clientBaseURL string) MiddlewareFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return recoverMiddleware(corsMiddleware(auth.WithClerkUserInContextMiddleware(next), clientBaseURL))
 	}
 }
 
-func configureCORS(e *echo.Echo, clientBaseURL string) {
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{clientBaseURL},
-		AllowHeaders: []string{
-			"anonymoususerid",
-			echo.HeaderAuthorization,
-			echo.HeaderAccept,
-			"Host",
-			echo.HeaderOrigin,
-			"Referer",
-			"Sec-Fetch-Dest",
-			"User-Agent",
-			"X-Forwarded-Host",
-			"X-Forwarded-Proto",
-			echo.HeaderContentType,
-		},
-		AllowMethods: []string{
-			http.MethodGet,
-			http.MethodPost,
-			http.MethodPut,
-			http.MethodPatch,
-			http.MethodDelete,
-		},
-		AllowCredentials: true,
-	}))
+// corsMiddleware sets up CORS configuration.
+func corsMiddleware(next http.HandlerFunc, clientBaseURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", clientBaseURL)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, X-Requested-With, AnonymousUserId")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
 }
 
-type RequestValidator struct {
-	validator *validator.Validate
-}
-
-func NewCustomValidator() *RequestValidator {
-	return &RequestValidator{validator: validator.New()}
-}
-
-func (cv *RequestValidator) Validate(i interface{}) error {
-	return cv.validator.Struct(i)
+// recoverMiddleware handles recovering from a panic.
+func recoverMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	}
 }

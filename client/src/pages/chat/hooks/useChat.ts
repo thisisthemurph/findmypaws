@@ -150,7 +150,7 @@ export default function useChat(roomIdentifier: string) {
   useEffect(() => {
     if (!participantId) return;
 
-    const webSocketUrl = `ws://localhost:42096/room?r=${roomIdentifier}&pid=${participantId}`;
+    const webSocketUrl = `ws://localhost:42069/room?r=${roomIdentifier}&pid=${participantId}`;
     const socket = new WebSocket(webSocketUrl);
     socket.onopen = () => {
       // Reset the messages to prevent loading the same ones again.
