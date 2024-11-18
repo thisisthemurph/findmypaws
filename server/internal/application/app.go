@@ -1,8 +1,11 @@
 package application
 
 import (
+	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
+	"paws/internal/chat"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/jmoiron/sqlx"
@@ -13,8 +16,10 @@ import (
 )
 
 type App struct {
+	DB           *sqlx.DB
+	ChatManager  *chat.Manager
 	Repositories *repository.Repositories
-	Router       *routes.Router
+	ServerMux    *http.ServeMux
 	Logger       *slog.Logger
 	Config       AppConfig
 }
@@ -40,23 +45,38 @@ func NewApp() (*App, error) {
 func (app *App) Build() error {
 	app.Logger.Info("building app")
 
-	if err := app.configureRepositories(); err != nil {
+	if err := app.configureDatabase(); err != nil {
 		return err
 	}
+	app.configureRepositories()
+	app.configureChatManager()
 
-	r := routes.NewRouter(app.Repositories, app.Config.ClientBaseURL, app.Logger)
-	app.Router = r
+	app.ServerMux = routes.BuildRoutesServerMux(app.Repositories, app.ChatManager, app.Config.ClientBaseURL, app.Logger)
 	return nil
 }
 
-func (app *App) configureRepositories() error {
+func (app *App) configureDatabase() error {
 	app.Logger.Info("configuring stores")
 
 	db, err := sqlx.Open("postgres", app.Config.Database.ConnectionString)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not open to database: %w", err)
 	}
 
-	app.Repositories = repository.NewRepositories(db)
+	if err := db.Ping(); err != nil {
+		return fmt.Errorf("could not ping database: %w", err)
+	}
+
+	app.DB = db
 	return nil
+}
+
+func (app *App) configureRepositories() {
+	app.Logger.Info("configuring repositories")
+	app.Repositories = repository.NewRepositories(app.DB)
+}
+
+func (app *App) configureChatManager() {
+	app.Logger.Info("configuring chat manager")
+	app.ChatManager = chat.NewManager(app.DB, app.Logger)
 }

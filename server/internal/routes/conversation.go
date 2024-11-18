@@ -1,12 +1,13 @@
 package routes
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 	"log/slog"
 	"net/http"
+	"paws/internal/auth"
 	"paws/internal/repository"
 	"paws/internal/types"
 )
@@ -31,10 +32,10 @@ type ConversationHandler struct {
 	Logger           *slog.Logger
 }
 
-func (h *ConversationHandler) MakeRoutes(g *echo.Group) {
-	g.POST("/conversations", h.CreateIfNotExists())
-	g.GET("/conversations", h.ListConversations())
-	g.GET("/conversations/:identifier", h.GetConversationByIdentifier())
+func (h *ConversationHandler) RegisterRoutes(mux *http.ServeMux, mf MiddlewareFunc) {
+	mux.HandleFunc("GET /api/v1/conversations", mf(h.ListConversations))
+	mux.HandleFunc("GET /api/v1/conversations/{identifier}", mf(h.GetConversationByIdentifier))
+	mux.HandleFunc("POST /api/v1/conversations", mf(h.CreateIfNotExists))
 }
 
 type ConversationPetDetail struct {
@@ -60,115 +61,124 @@ type CreateConversationRequest struct {
 	ParticipantId string    `json:"participantId" validate:"required"`
 }
 
-func (h *ConversationHandler) CreateIfNotExists() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		var req CreateConversationRequest
-		if err := c.Bind(&req); err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest)
-		}
-		if err := c.Validate(req); err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest)
-		}
-
-		if _, err := h.ConversationRepo.GetOrCreate(req.Identifier, req.ParticipantId); err != nil {
-			h.Logger.Error("error getting/creating the conversation", "identifier", req.Identifier, "participant", req.ParticipantId, "error", err)
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-
-		return c.NoContent(http.StatusNoContent)
+func (h *ConversationHandler) CreateIfNotExists(w http.ResponseWriter, r *http.Request) {
+	var req CreateConversationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.Logger.Error("error getting/creating the conversation", "identifier", req.Identifier, "participant", req.ParticipantId, "error", err)
+		return
 	}
+	if req.Identifier == uuid.Nil || req.ParticipantId == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+	}
+
+	if _, err := h.ConversationRepo.GetOrCreate(req.Identifier, req.ParticipantId); err != nil {
+		h.Logger.Error("error getting/creating the conv")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ListConversations lists all conversations for the current conversation participant.
-func (h *ConversationHandler) ListConversations() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		participantID := getParticipantID(c)
-		if participantID == "" {
-			return echo.NewHTTPError(http.StatusBadRequest, "participant information missing")
-		}
-
-		conversations, err := h.ConversationRepo.List(participantID)
-		if err != nil {
-			h.Logger.Error("failed to list conversations", "error", err)
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-
-		if len(conversations) == 0 {
-			return c.JSON(http.StatusOK, []ConversationResponse{})
-		}
-
-		primaryUserID := conversations[0].PrimaryParticipantID
-		pets, err := h.PetRepository.List(primaryUserID)
-		if err != nil {
-			h.Logger.Error("failed to list conversations", "error", err)
-		}
-
-		petLookup := make(map[uuid.UUID]ConversationPetDetail)
-		for _, pet := range pets {
-			petLookup[pet.ID] = ConversationPetDetail{
-				Name: pet.Name,
-				Type: string(*pet.Type),
-			}
-		}
-
-		response := make([]ConversationResponse, len(conversations))
-		for i, conversation := range conversations {
-			petDetail, petFound := petLookup[conversation.Identifier]
-			participant, otherParticipant := h.getParticipants(participantID, conversation, petLookup)
-			title := otherParticipant.Name
-			if petFound {
-				title = fmt.Sprintf("%s - %s", otherParticipant.Name, petDetail.Name)
-			}
-
-			response[i] = ConversationResponse{
-				Conversation:     conversation,
-				Pet:              petDetail,
-				Participant:      participant,
-				OtherParticipant: otherParticipant,
-				Title:            title,
-			}
-		}
-
-		return c.JSON(http.StatusOK, response)
+func (h *ConversationHandler) ListConversations(w http.ResponseWriter, r *http.Request) {
+	participantID, err := getParticipantIDFromRequest(r)
+	if err != nil {
+		h.Logger.Error("failed to determine participant ID", "error", err)
 	}
-}
 
-func (h *ConversationHandler) GetConversationByIdentifier() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		currentParticipantID := getParticipantID(c)
-		identifier, err := uuid.Parse(c.Param("identifier"))
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "invalid identifier")
+	conversations, err := h.ConversationRepo.List(participantID)
+	if err != nil {
+		h.Logger.Error("failed to list conversations", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if len(conversations) == 0 {
+		json.NewEncoder(w).Encode([]ConversationResponse{})
+		return
+	}
+
+	primaryUserID := conversations[0].PrimaryParticipantID
+	pets, err := h.PetRepository.List(primaryUserID)
+	if err != nil {
+		h.Logger.Error("failed to list conversations", "error", err)
+	}
+
+	petLookup := make(map[uuid.UUID]ConversationPetDetail)
+	for _, pet := range pets {
+		petLookup[pet.ID] = ConversationPetDetail{
+			Name: pet.Name,
+			Type: string(*pet.Type),
 		}
+	}
 
-		conversation, err := h.ConversationRepo.Get(identifier, currentParticipantID)
-		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
-				return echo.NewHTTPError(http.StatusNotFound, "conversation not found")
-			}
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-
-		petLookup := h.getPetLookup(conversation.PrimaryParticipantID)
-
+	response := make([]ConversationResponse, len(conversations))
+	for i, conversation := range conversations {
 		petDetail, petFound := petLookup[conversation.Identifier]
-		currentParticipant, otherParticipant := h.getParticipants(currentParticipantID, *conversation, petLookup)
-
+		participant, otherParticipant := h.getParticipants(participantID, conversation, petLookup)
 		title := otherParticipant.Name
 		if petFound {
 			title = fmt.Sprintf("%s - %s", otherParticipant.Name, petDetail.Name)
 		}
 
-		response := ConversationResponse{
-			Conversation:     *conversation,
+		response[i] = ConversationResponse{
+			Conversation:     conversation,
 			Pet:              petDetail,
-			Participant:      currentParticipant,
+			Participant:      participant,
 			OtherParticipant: otherParticipant,
 			Title:            title,
 		}
-
-		return c.JSON(http.StatusOK, response)
 	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+func (h *ConversationHandler) GetConversationByIdentifier(w http.ResponseWriter, r *http.Request) {
+	currentParticipantID, err := getParticipantIDFromRequest(r)
+	if err != nil {
+		h.Logger.Error("failed to determine participant ID", "error", err)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	identifier, err := uuid.Parse(r.PathValue("identifier"))
+	if err != nil {
+		h.Logger.Error("failed to determine participant ID", "error", err)
+		http.Error(w, "invalid identifier", http.StatusBadRequest)
+		return
+	}
+
+	conversation, err := h.ConversationRepo.Get(identifier, currentParticipantID)
+	if err != nil {
+		h.Logger.Error("failed to determine conversation", "error", err)
+		if errors.Is(err, repository.ErrNotFound) {
+			http.Error(w, "conversation not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	petLookup := h.getPetLookup(conversation.PrimaryParticipantID)
+
+	petDetail, petFound := petLookup[conversation.Identifier]
+	currentParticipant, otherParticipant := h.getParticipants(currentParticipantID, *conversation, petLookup)
+
+	title := otherParticipant.Name
+	if petFound {
+		title = fmt.Sprintf("%s - %s", otherParticipant.Name, petDetail.Name)
+	}
+
+	response := ConversationResponse{
+		Conversation:     *conversation,
+		Pet:              petDetail,
+		Participant:      currentParticipant,
+		OtherParticipant: otherParticipant,
+		Title:            title,
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *ConversationHandler) getParticipants(currentParticipantID string, conversation types.Conversation, petLookup map[uuid.UUID]ConversationPetDetail) (ConversationParticipant, ConversationParticipant) {
@@ -225,16 +235,14 @@ func (h *ConversationHandler) getPetLookup(primaryParticipantID string) map[uuid
 	return petLookup
 }
 
-func getAnonymousUserID(c echo.Context) string {
-	return c.Request().Header.Get("AnonymousUserId")
-}
-
-// getParticipantID returns the ID of the conversation participant.
-// If the participant is authenticated, their userID is returned, otherwise their anonymous user ID is returned.
-func getParticipantID(c echo.Context) string {
-	user := clerkUser(c)
+func getParticipantIDFromRequest(r *http.Request) (string, error) {
+	user := auth.GetUserFromContext(r.Context())
 	if user.Authenticated {
-		return user.ID
+		return user.ID, nil
 	}
-	return getAnonymousUserID(c)
+	anonymousUserID := r.Header.Get("AnonymousUserId")
+	if anonymousUserID == "" {
+		return "", errors.New("could not determine participant ID")
+	}
+	return anonymousUserID, nil
 }
