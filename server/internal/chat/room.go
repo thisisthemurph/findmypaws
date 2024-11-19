@@ -47,13 +47,14 @@ type Room struct {
 	manager *Manager
 	logger  *slog.Logger
 
-	handlers map[EventType]EventHandler
-	clients  ClientList
+	clients ClientList
 	sync.RWMutex
 
 	join    chan *Client
 	leave   chan *Client
 	forward chan Event
+
+	handlers *eventHandlers
 }
 
 func NewRoom(conversationID int64, identifier uuid.UUID, manager *Manager) *Room {
@@ -63,13 +64,13 @@ func NewRoom(conversationID int64, identifier uuid.UUID, manager *Manager) *Room
 		manager: manager,
 		logger:  manager.logger.With("roomKey", roomKey.String()),
 
-		handlers: make(map[EventType]EventHandler),
-		clients:  make(map[*Client]struct{}),
-		join:     make(chan *Client),
-		leave:    make(chan *Client),
-		forward:  make(chan Event),
+		clients: make(map[*Client]struct{}),
+		join:    make(chan *Client),
+		leave:   make(chan *Client),
+		forward: make(chan Event),
 	}
-	room.setUpHandlers()
+	handlers := newEventHandlers(room)
+	room.handlers = handlers
 	return room
 }
 
@@ -95,11 +96,14 @@ func (r *Room) ServeWS(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Room) HandleEvent(e Event, c *Client) error {
-	handler, ok := r.handlers[e.Type]
-	if !ok {
+	switch e.Type {
+	case EventTypeSendMessage:
+		return r.handlers.SendMessageHandler(e, c)
+	case EventTypeEmojiReact:
+		return r.handlers.EmojiReactHandler(e, c)
+	default:
 		return ErrUnsupportedEventType
 	}
-	return handler(e, c)
 }
 
 func (r *Room) run() {
@@ -185,11 +189,6 @@ func (r *Room) EgressHistoricalMessages(client *Client) error {
 	}
 
 	return nil
-}
-
-func (r *Room) setUpHandlers() {
-	r.handlers[EventTypeSendMessage] = r.SendMessageHandler
-	r.handlers[EventTypeEmojiReact] = r.EmojiReactHandler
 }
 
 func checkOrigin(r *http.Request) bool {

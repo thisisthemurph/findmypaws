@@ -51,8 +51,8 @@ func (c *Client) read() {
 
 		var ev Event
 		if err := json.Unmarshal(payload, &ev); err != nil {
-			c.logger.Error("error unmarshalling message", "error", err)
-			break
+			c.logger.Error("error unmarshalling event payload", "payload", payload, "error", err)
+			continue
 		}
 
 		if err := c.room.HandleEvent(ev, c); err != nil {

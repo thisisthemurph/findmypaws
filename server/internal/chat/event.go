@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -57,7 +58,21 @@ type NewEmojiReactEvent struct {
 
 type EventHandler func(e Event, c *Client) error
 
-func (r *Room) SendMessageHandler(e Event, c *Client) error {
+type eventHandlers struct {
+	room   *Room
+	logger *slog.Logger
+}
+
+func newEventHandlers(room *Room) *eventHandlers {
+	return &eventHandlers{
+		room:   room,
+		logger: room.logger,
+	}
+}
+
+func (h *eventHandlers) SendMessageHandler(e Event, c *Client) error {
+	h.logger = h.logger.With("handler", "SendMessageHandler")
+
 	var msgEvent SendMessageEvent
 	if err := json.Unmarshal(e.Payload, &msgEvent); err != nil {
 		return fmt.Errorf("bad payload for %v event: %w", EventTypeSendMessage, err)
@@ -67,15 +82,14 @@ func (r *Room) SendMessageHandler(e Event, c *Client) error {
 	broadcast.SendMessageEvent = msgEvent
 	broadcast.Timestamp = time.Now()
 
-	message, err := r.PersistMessage(broadcast)
+	message, err := h.room.PersistMessage(broadcast)
 	if err != nil {
-		r.logger.Error("error persisting message in database", "error", err)
+		h.logger.Error("error persisting message in database", "error", err)
 	}
 
 	broadcast.ID = message.ID
 	data, err := json.Marshal(broadcast)
 	if err != nil {
-
 		return fmt.Errorf("could not marshal new message: %w", err)
 	}
 
@@ -89,14 +103,16 @@ func (r *Room) SendMessageHandler(e Event, c *Client) error {
 	return nil
 }
 
-func (r *Room) EmojiReactHandler(e Event, c *Client) error {
+func (h *eventHandlers) EmojiReactHandler(e Event, c *Client) error {
+	h.logger = h.logger.With("handler", "EmojiReactHandler")
+
 	var emojiEvent EmojiReactEvent
 	if err := json.Unmarshal(e.Payload, &emojiEvent); err != nil {
 		return fmt.Errorf("bad payload for %v event: %w", EventTypeEmojiReact, err)
 	}
-	r.logger.Debug("emoji", "event", emojiEvent)
+	h.logger.Debug("emoji", "event", emojiEvent)
 
-	message, err := r.manager.conversationRepo.GetMessage(emojiEvent.ConversationID, emojiEvent.MessageID)
+	message, err := h.room.manager.conversationRepo.GetMessage(emojiEvent.ConversationID, emojiEvent.MessageID)
 	if err != nil {
 		return fmt.Errorf("could not get message from conversation: %w", err)
 	}
@@ -107,7 +123,7 @@ func (r *Room) EmojiReactHandler(e Event, c *Client) error {
 		message.EmojiReaction = &emojiEvent.EmojiKey
 	}
 
-	if err := r.manager.conversationRepo.UpdateMessage(message); err != nil {
+	if err := h.room.manager.conversationRepo.UpdateMessage(message); err != nil {
 		return fmt.Errorf("could not update message: %w", err)
 	}
 
