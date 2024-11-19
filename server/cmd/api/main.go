@@ -1,8 +1,10 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"paws/internal/application"
+	"paws/internal/routes"
 )
 
 func main() {
@@ -12,8 +14,9 @@ func main() {
 	}
 
 	if err := app.Build(); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	http.ListenAndServe(app.Config.Host, app.ServerMux)
+	mux := routes.BuildRoutesServerMux(app)
+	http.ListenAndServe(app.Config.Host, mux)
 }

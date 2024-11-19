@@ -1,12 +1,9 @@
 package routes
 
 import (
-	"log/slog"
 	"net/http"
+	"paws/internal/application"
 	"paws/internal/auth"
-	"paws/internal/chat"
-
-	"paws/internal/repository"
 )
 
 type MiddlewareFunc func(http.HandlerFunc) http.HandlerFunc
@@ -15,27 +12,26 @@ type RouteRegister interface {
 	RegisterRoutes(mux *http.ServeMux, middlewareFunc MiddlewareFunc)
 }
 
-func BuildRoutesServerMux(
-	repos *repository.Repositories,
-	manager *chat.Manager,
-	clientBaseURL string,
-	logger *slog.Logger,
-) *http.ServeMux {
+func BuildRoutesServerMux(app *application.App) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	mux.Handle("/static/", staticHandler)
 
+	logger := app.Logger
+	repos := app.Repositories
+
 	handlers := []RouteRegister{
 		NewUsersHandler(repos.UserRepository, repos.NotificationRepository, repos.PetRepository, logger),
 		NewPetsHandler(repos.NotificationRepository, repos.PetRepository, logger),
 		NewConversationHandler(repos.ConversationRepository, repos.PetRepository, repos.UserRepository, logger),
-		NewChatHandler(manager, logger),
+		NewChatHandler(app.ChatManager, logger),
+		NewWebhookHandler(app.Config.Clerk.SigningSecret, repos.UserRepository, logger),
 	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodOptions {
-			w.Header().Set("Access-Control-Allow-Origin", clientBaseURL)
+			w.Header().Set("Access-Control-Allow-Origin", app.Config.ClientBaseURL)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, X-Requested-With, AnonymousUserId")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -46,7 +42,7 @@ func BuildRoutesServerMux(
 		http.NotFound(w, r)
 	})
 
-	applyMiddlewareFunc := applyMiddlewareFactory(clientBaseURL)
+	applyMiddlewareFunc := applyMiddlewareFactory(app.Config.ClientBaseURL)
 
 	for _, h := range handlers {
 		h.RegisterRoutes(mux, applyMiddlewareFunc)
