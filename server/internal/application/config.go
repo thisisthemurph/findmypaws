@@ -7,7 +7,8 @@ type DatabaseConfig struct {
 }
 
 type ClerkConfig struct {
-	Secret string
+	Secret        string
+	SigningSecret string
 }
 
 type AppConfig struct {
@@ -17,9 +18,9 @@ type AppConfig struct {
 	Clerk         ClerkConfig
 }
 
-func NewAppConfig(getfn func(string) string) AppConfig {
+func NewAppConfig(getFunc func(string) string) AppConfig {
 	get := func(k string) string {
-		v := getfn(k)
+		v := getFunc(k)
 		if v == "" {
 			panic(fmt.Sprintf("Evironment variable %q not found", k))
 		}
@@ -30,7 +31,8 @@ func NewAppConfig(getfn func(string) string) AppConfig {
 		Host:          get("HOST"),
 		ClientBaseURL: get("CLIENT_BASE_URL"),
 		Clerk: ClerkConfig{
-			Secret: get("CLERK_SECRET_KEY"),
+			Secret:        get("CLERK_SECRET_KEY"),
+			SigningSecret: get("CLERK_SIGNING_SECRET"),
 		},
 		Database: DatabaseConfig{
 			ConnectionString: get("DATABASE_CONNECTION_STRING"),

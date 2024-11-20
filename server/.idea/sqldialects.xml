@@ -9,5 +9,6 @@
     <file url="file://$PROJECT_DIR$/migrations/1730647357_create_messages_table.down.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/migrations/1730647357_create_messages_table.up.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/migrations/1731309105_create_anonymous_users_table.up.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/migrations/1732001423_create_users_table.up.sql" dialect="PostgreSQL" />
   </component>
 </project>

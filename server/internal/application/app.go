@@ -3,25 +3,23 @@ package application
 import (
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
-	"paws/internal/chat"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"paws/internal/chat"
 	"paws/internal/repository"
-	"paws/internal/routes"
 )
 
 type App struct {
 	DB           *sqlx.DB
 	ChatManager  *chat.Manager
 	Repositories *repository.Repositories
-	ServerMux    *http.ServeMux
-	Logger       *slog.Logger
-	Config       AppConfig
+	//ServerMux    *http.ServeMux
+	Logger *slog.Logger
+	Config AppConfig
 }
 
 func NewApp() (*App, error) {
@@ -51,7 +49,7 @@ func (app *App) Build() error {
 	app.configureRepositories()
 	app.configureChatManager()
 
-	app.ServerMux = routes.BuildRoutesServerMux(app.Repositories, app.ChatManager, app.Config.ClientBaseURL, app.Logger)
+	//app.ServerMux = routes.BuildRoutesServerMux(app)
 	return nil
 }
 
