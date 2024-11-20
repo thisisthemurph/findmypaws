@@ -11,7 +11,7 @@ import (
 )
 
 type UserRepository interface {
-	GetUser(id string) (clerk.User, error)
+	GetUser(id string) (types.User, error)
 	UpsertUser(u clerk.User) error
 	DeleteUser(id string) error
 	GetAnonymousUser(id string) (types.AnonymousUser, error)
@@ -28,21 +28,23 @@ func NewUserRepository(db *sqlx.DB) UserRepository {
 	}
 }
 
-func (r *postgresUserRepository) GetUser(id string) (clerk.User, error) {
+func (r *postgresUserRepository) GetUser(id string) (types.User, error) {
 	stmt := "select data from users where id = $1;"
 	var b []byte
 	if err := r.db.QueryRow(stmt, id).Scan(&b); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return clerk.User{}, ErrNotFound
+			return types.User{}, ErrNotFound
 		}
-		return clerk.User{}, fmt.Errorf("error getting user from database: %w", err)
+		return types.User{}, fmt.Errorf("error getting user from database: %w", err)
 	}
 
 	var usr clerk.User
 	if err := json.Unmarshal(b, &usr); err != nil {
-		return clerk.User{}, fmt.Errorf("error unmarshalling user JSON: %w", err)
+		return types.User{}, fmt.Errorf("error unmarshalling user JSON: %w", err)
 	}
-	return usr, nil
+	return types.User{
+		User: usr,
+	}, nil
 }
 
 func (r *postgresUserRepository) UpsertUser(u clerk.User) error {
