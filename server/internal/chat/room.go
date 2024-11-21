@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"paws/internal/database/model"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"paws/internal/types"
 )
 
 const (
@@ -146,8 +146,8 @@ func (r *Room) removeClient(client *Client) {
 	}
 }
 
-func (r *Room) PersistMessage(message NewMessageEvent) (*types.Message, error) {
-	m := &types.Message{
+func (r *Room) PersistMessage(message NewMessageEvent) (*model.Message, error) {
+	m := &model.Message{
 		ConversationID: r.key.ConversationID,
 		SenderID:       message.SenderID,
 		Text:           message.Text,

@@ -1,12 +1,19 @@
-package types
+package response
 
 import (
 	"github.com/clerk/clerk-sdk-go/v2"
+	"paws/internal/database/model"
 	"time"
 )
 
 type User struct {
 	clerk.User
+}
+
+func NewUserFromModel(m clerk.User) User {
+	return User{
+		User: m,
+	}
 }
 
 // PrimaryEmailAddress returns the email address associated with the User PrimaryEmailAddressID
@@ -24,8 +31,17 @@ func (u User) PrimaryEmailAddress() string {
 }
 
 type AnonymousUser struct {
-	ID        string    `db:"id" json:"id"`
-	Name      string    `db:"name" json:"name"`
-	CreatedAt time.Time `db:"created_at" json:"createdAt"`
-	UpdatedAt time.Time `db:"updated_at" json:"updatedAt"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+func NewAnonymousUserFromModel(m model.AnonymousUser) AnonymousUser {
+	return AnonymousUser{
+		ID:        m.ID,
+		Name:      m.Name,
+		CreatedAt: m.CreatedAt,
+		UpdatedAt: m.UpdatedAt,
+	}
 }

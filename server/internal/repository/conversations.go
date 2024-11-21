@@ -5,19 +5,19 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"paws/internal/types"
+	"paws/internal/database/model"
 	"time"
 )
 
 type ConversationRepository interface {
-	Create(c *types.Conversation) error
-	Get(identifier uuid.UUID, participantID string) (*types.Conversation, error)
-	GetOrCreate(identifier uuid.UUID, secondaryParticipantID string) (*types.Conversation, error)
-	List(participantID string) ([]types.Conversation, error)
-	ListHistoricalMessages(conversationID int64, toDate time.Time, lookbackDays int) ([]types.Message, error)
-	GetMessage(conversationID, messageID int64) (*types.Message, error)
-	UpdateMessage(m *types.Message) error
-	CreateMessage(m *types.Message) error
+	Create(c *model.Conversation) error
+	Get(identifier uuid.UUID, participantID string) (*model.Conversation, error)
+	GetOrCreate(identifier uuid.UUID, secondaryParticipantID string) (*model.Conversation, error)
+	List(participantID string) ([]model.Conversation, error)
+	ListHistoricalMessages(conversationID int64, toDate time.Time, lookbackDays int) ([]model.Message, error)
+	GetMessage(conversationID, messageID int64) (*model.Message, error)
+	UpdateMessage(m *model.Message) error
+	CreateMessage(m *model.Message) error
 	MarkMessageRead(messageId int64, participantID string) error
 }
 
@@ -29,20 +29,20 @@ func NewConversationsRepository(db *sqlx.DB) ConversationRepository {
 	return &postgresConversationRepository{db: db}
 }
 
-func (r *postgresConversationRepository) List(participantID string) ([]types.Conversation, error) {
+func (r *postgresConversationRepository) List(participantID string) ([]model.Conversation, error) {
 	stmt := `
 		select * 
 		from conversations 
 		where primary_participant_id = $1 or secondary_participant_id = $1;`
 
-	var cc []types.Conversation
+	var cc []model.Conversation
 	if err := r.db.Select(&cc, stmt, participantID); err != nil {
 		return nil, err
 	}
 	return cc, nil
 }
 
-func (r *postgresConversationRepository) Create(c *types.Conversation) error {
+func (r *postgresConversationRepository) Create(c *model.Conversation) error {
 	stmt := `
 		insert into conversations (identifier, primary_participant_id, secondary_participant_id)
 		values ($1, $2, $3)
@@ -54,14 +54,14 @@ func (r *postgresConversationRepository) Create(c *types.Conversation) error {
 	return nil
 }
 
-func (r *postgresConversationRepository) Get(identifier uuid.UUID, participantID string) (*types.Conversation, error) {
+func (r *postgresConversationRepository) Get(identifier uuid.UUID, participantID string) (*model.Conversation, error) {
 	stmt := `
 		select * 
 		from conversations
 		where identifier = $1 
 		  and (primary_participant_id = $2 or secondary_participant_id = $2);`
 
-	var conversation types.Conversation
+	var conversation model.Conversation
 	if err := r.db.Get(&conversation, stmt, identifier, participantID); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -77,9 +77,9 @@ func (r *postgresConversationRepository) Get(identifier uuid.UUID, participantID
 // GetOrCreate finds an existing or creates a new conversation.
 // The participantID is either the primary or secondary participant for an exising conversation, but can only
 // be the secondary participant when creating a conversation as conversations must be initialised by them.
-func (r *postgresConversationRepository) GetOrCreate(identifier uuid.UUID, participantID string) (*types.Conversation, error) {
+func (r *postgresConversationRepository) GetOrCreate(identifier uuid.UUID, participantID string) (*model.Conversation, error) {
 	stmt := `select * from conversations where identifier = $1 and (primary_participant_id = $2 or secondary_participant_id = $2);`
-	var conversation types.Conversation
+	var conversation model.Conversation
 	if err := r.db.Get(&conversation, stmt, identifier, participantID); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -96,7 +96,7 @@ func (r *postgresConversationRepository) GetOrCreate(identifier uuid.UUID, parti
 		return nil, err
 	}
 
-	conversation = types.Conversation{
+	conversation = model.Conversation{
 		Identifier:             identifier,
 		PrimaryParticipantID:   primaryParticipantID,
 		SecondaryParticipantID: participantID,
@@ -108,7 +108,7 @@ func (r *postgresConversationRepository) GetOrCreate(identifier uuid.UUID, parti
 	return &conversation, nil
 }
 
-func (r *postgresConversationRepository) CreateMessage(m *types.Message) error {
+func (r *postgresConversationRepository) CreateMessage(m *model.Message) error {
 	stmt := `
 		insert into messages (conversation_id, sender_id, text)
 		values ($1, $2, $3)
@@ -120,9 +120,9 @@ func (r *postgresConversationRepository) CreateMessage(m *types.Message) error {
 	return nil
 }
 
-func (r *postgresConversationRepository) GetMessage(conversationID, messageID int64) (*types.Message, error) {
+func (r *postgresConversationRepository) GetMessage(conversationID, messageID int64) (*model.Message, error) {
 	stmt := `select * from messages where conversation_id = $1 and id = $2;`
-	var m types.Message
+	var m model.Message
 	if err := r.db.Get(&m, stmt, conversationID, messageID); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -132,7 +132,7 @@ func (r *postgresConversationRepository) GetMessage(conversationID, messageID in
 	return &m, nil
 }
 
-func (r *postgresConversationRepository) UpdateMessage(m *types.Message) error {
+func (r *postgresConversationRepository) UpdateMessage(m *model.Message) error {
 	stmt := "update messages set emoji_reaction = $1 where id = $2 returning emoji_reaction;"
 	if err := r.db.Get(m, stmt, m.EmojiReaction, m.ID); err != nil {
 		return err
@@ -140,7 +140,7 @@ func (r *postgresConversationRepository) UpdateMessage(m *types.Message) error {
 	return nil
 }
 
-func (r *postgresConversationRepository) ListHistoricalMessages(conversationID int64, toDate time.Time, lookbackDays int) ([]types.Message, error) {
+func (r *postgresConversationRepository) ListHistoricalMessages(conversationID int64, toDate time.Time, lookbackDays int) ([]model.Message, error) {
 	q := `
 		select *
 		from messages
@@ -148,7 +148,7 @@ func (r *postgresConversationRepository) ListHistoricalMessages(conversationID i
 		  and created_at between $2 and $3
 		order by created_at;`
 
-	var mm []types.Message
+	var mm []model.Message
 	fromDate := toDate.AddDate(0, 0, -lookbackDays)
 	if err := r.db.Select(&mm, q, conversationID, fromDate, toDate); err != nil {
 		return nil, err

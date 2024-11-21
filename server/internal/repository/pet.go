@@ -3,17 +3,18 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"paws/internal/response"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"paws/internal/types"
+	"paws/internal/database/model"
 )
 
 type PetRepository interface {
-	Get(id uuid.UUID) (types.Pet, error)
-	List(userID string) ([]types.Pet, error)
-	Create(pet *types.Pet) error
-	Update(pet *types.Pet) error
+	Get(id uuid.UUID) (model.Pet, error)
+	List(userID string) ([]model.Pet, error)
+	Create(pet *model.Pet) error
+	Update(pet *model.Pet) error
 	Delete(id uuid.UUID) error
 }
 
@@ -27,14 +28,15 @@ func NewPetRepository(db *sqlx.DB) PetRepository {
 	}
 }
 
-func (r *postgresPetRepository) Get(id uuid.UUID) (types.Pet, error) {
+func (r *postgresPetRepository) Get(id uuid.UUID) (model.Pet, error) {
 	stmt := `
-		select id, user_id, name, tags, dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
+		select id, user_id, name, coalesce(tags, '{}')::jsonb as tags, 
+		       dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
     	from pets
     	where id = $1;`
 
-	var p types.Pet
-	if err := r.db.Get(&p, stmt, id, types.PetTypeUnknown); err != nil {
+	var p model.Pet
+	if err := r.db.Get(&p, stmt, id, response.PetTypeUnknown); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return p, ErrNotFound
 		}
@@ -43,32 +45,33 @@ func (r *postgresPetRepository) Get(id uuid.UUID) (types.Pet, error) {
 	return p, nil
 }
 
-func (r *postgresPetRepository) List(userID string) ([]types.Pet, error) {
+func (r *postgresPetRepository) List(userID string) ([]model.Pet, error) {
 	stmt := `
-		select id, user_id, name, tags, dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
+		select id, user_id, name, coalesce(tags, '{}')::jsonb as tags, 
+		       dob, avatar_uri, blurb, created_at, updated_at, coalesce(type, $2) as type
 		from pets
 		where user_id = $1;`
 
-	pp := make([]types.Pet, 0)
-	if err := r.db.Select(&pp, stmt, userID, types.PetTypeUnknown); err != nil {
+	pp := make([]model.Pet, 0)
+	if err := r.db.Select(&pp, stmt, userID, string(response.PetTypeUnknown)); err != nil {
 		return pp, err
 	}
 	return pp, nil
 }
 
-func (r *postgresPetRepository) Create(p *types.Pet) error {
+func (r *postgresPetRepository) Create(p *model.Pet) error {
 	stmt := `
-		insert into pets (user_id, name, type, tags, dob) 
-		values ($1, $2, $3, $4, $5) 
+		insert into pets (user_id, name, type, dob) 
+		values ($1, $2, $3, $4) 
 		returning id, created_at, updated_at;`
 
-	if err := r.db.Get(p, stmt, p.UserID, p.Name, p.Type, p.Tags, p.DOB); err != nil {
+	if err := r.db.Get(p, stmt, p.UserID, p.Name, p.Type, p.DOB); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *postgresPetRepository) Update(p *types.Pet) error {
+func (r *postgresPetRepository) Update(p *model.Pet) error {
 	stmt := `
 		update pets set 
 		    name = $1,
@@ -84,10 +87,7 @@ func (r *postgresPetRepository) Update(p *types.Pet) error {
 		return errors.New("userId is required")
 	}
 
-	if err := r.db.Get(p, stmt, p.Name, p.Tags, p.DOB, p.Type, p.Blurb, p.AvatarURI, p.ID, types.PetTypeUnknown); err != nil {
-		return err
-	}
-	return nil
+	return r.db.Get(p, stmt, p.Name, p.Tags, p.DOB, p.Type, p.Blurb, p.AvatarURI, p.ID, string(response.PetTypeUnknown))
 }
 
 func (r *postgresPetRepository) Delete(id uuid.UUID) error {

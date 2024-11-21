@@ -11,7 +11,7 @@ import (
 	"github.com/clerk/clerk-sdk-go/v2"
 	svix "github.com/svix/svix-webhooks/go"
 	"paws/internal/repository"
-	"paws/internal/types/clerktype"
+	"paws/internal/response/clerktype"
 )
 
 type WebhookHandler struct {

@@ -1,8 +1,9 @@
-package types
+package response
 
 import (
 	"encoding/json"
 	"fmt"
+	"paws/internal/database/model"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,7 +13,17 @@ type NotificationType string
 
 const (
 	SpottedPetNotification NotificationType = "spotted_pet"
+	UnknownNotification    NotificationType = "unknown"
 )
+
+func NewNotificationType(t string) NotificationType {
+	switch t {
+	case "spotted_pet":
+		return SpottedPetNotification
+	default:
+		return UnknownNotification
+	}
+}
 
 // Notification represents a generic user facing notification.
 type Notification struct {
@@ -24,47 +35,35 @@ type Notification struct {
 	Seen      bool             `json:"seen"`
 }
 
-// NotificationModel represents a row in the notifications table.
-type NotificationModel struct {
-	ID        int64            `db:"id"`
-	UserID    string           `db:"user_id"`
-	PetID     uuid.UUID        `db:"pet_id"`
-	Type      NotificationType `db:"type"`
-	Detail    json.RawMessage  `db:"detail"`
-	CreatedAt time.Time        `db:"created_at"`
-	SeenAt    *time.Time       `db:"seen_at"`
-}
-
-// Notification converts a NotificationModel to a Notification.
-func (n NotificationModel) Notification() (Notification, bool) {
-	detail, err := n.parseDetail()
+func NewNotificationFromModel(m model.Notification) (Notification, bool) {
+	detail, err := parseNotificationDetail(m)
 	if err != nil {
 		return Notification{}, false
 	}
 
 	notification := Notification{
-		ID:        fmt.Sprintf("%s_%d", n.Type, n.ID),
-		Type:      n.Type,
+		ID:        fmt.Sprintf("%s_%d", m.Type, m.ID),
+		Type:      NewNotificationType(m.Type),
 		Message:   detail.Message(),
 		Link:      detail.Link(),
-		CreatedAt: n.CreatedAt,
-		Seen:      n.SeenAt != nil,
+		CreatedAt: m.CreatedAt,
+		Seen:      m.SeenAt != nil,
 	}
 	return notification, true
 }
 
-func (n NotificationModel) parseDetail() (NotificationDetail, error) {
+func parseNotificationDetail(m model.Notification) (NotificationDetail, error) {
 	var detail NotificationDetail
 
-	switch n.Type {
+	switch m.Type {
 	case "spotted_pet":
 		var messageDetail SpottedPetNotificationDetail
-		if err := json.Unmarshal(n.Detail, &messageDetail); err != nil {
+		if err := json.Unmarshal(m.Detail, &messageDetail); err != nil {
 			return nil, err
 		}
 		detail = messageDetail
 	default:
-		return nil, fmt.Errorf("unknown notification type: %s", n.Type)
+		return nil, fmt.Errorf("unknown notification type: %s", m.Type)
 	}
 
 	return detail, nil
