@@ -1,6 +1,6 @@
 import { Notification } from "@/api/types.ts";
 import { Link } from "react-router-dom";
-import { SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/clerk-react";
 import {
   Sheet,
   SheetClose,
@@ -11,19 +11,25 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useApi } from "@/hooks/useApi.ts";
 import NotificationMenu from "@/components/NotificationMenu.tsx";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export default function Header() {
+  const { isSignedIn } = useUser();
   const api = useApi();
+  const queryClient = useQueryClient();
 
   const { data } = useQuery<Notification[]>({
     queryKey: ["notifications"],
-    queryFn: async () => await api<Notification[]>("/user/notifications"),
+    queryFn: async () => (isSignedIn ? await api<Notification[]>("/user/notifications") : []),
   });
+
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["notifications"] });
+  }, [queryClient, isSignedIn]);
 
   return (
     <Sheet>
