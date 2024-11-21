@@ -3,16 +3,17 @@ package repository
 import (
 	"encoding/json"
 	"fmt"
+	"paws/internal/database/model"
+	"paws/internal/response"
 
 	"github.com/jmoiron/sqlx"
-	"paws/internal/types"
 )
 
 type NotificationRepository interface {
-	List(userID string) ([]types.NotificationModel, error)
-	Create(n *types.NotificationModel) error
+	List(userID string) ([]model.Notification, error)
+	Create(n *model.Notification) error
 	MarkAllSeen(userID string) error
-	RecentlyNotified(n types.NotificationModel) (bool, error)
+	RecentlyNotified(n model.Notification) (bool, error)
 }
 
 type postgresNotificationRepository struct {
@@ -25,20 +26,20 @@ func NewNotificationRepository(db *sqlx.DB) NotificationRepository {
 	}
 }
 
-func (r *postgresNotificationRepository) List(userID string) ([]types.NotificationModel, error) {
+func (r *postgresNotificationRepository) List(userID string) ([]model.Notification, error) {
 	q := `
 		select * from notifications 
 		where user_id = $1
 		order by created_at desc;`
 
-	var nn []types.NotificationModel
+	var nn []model.Notification
 	if err := r.db.Select(&nn, q, userID); err != nil {
 		return nil, err
 	}
 	return nn, nil
 }
 
-func (r *postgresNotificationRepository) Create(n *types.NotificationModel) error {
+func (r *postgresNotificationRepository) Create(n *model.Notification) error {
 	stmt := `
 		insert into notifications (user_id, type, detail)
 		values ($1, $2, $3)
@@ -55,17 +56,17 @@ func (r *postgresNotificationRepository) MarkAllSeen(userID string) error {
 	return err
 }
 
-func (r *postgresNotificationRepository) RecentlyNotified(n types.NotificationModel) (bool, error) {
+func (r *postgresNotificationRepository) RecentlyNotified(n model.Notification) (bool, error) {
 	switch n.Type {
-	case types.SpottedPetNotification:
+	case "spotted_pet":
 		return r.spottedPetNotificationRecentlyNotified(n)
 	default:
 		return false, fmt.Errorf("unknown notification type %v", n.Type)
 	}
 }
 
-func (r *postgresNotificationRepository) spottedPetNotificationRecentlyNotified(n types.NotificationModel) (bool, error) {
-	var detail types.SpottedPetNotificationDetail
+func (r *postgresNotificationRepository) spottedPetNotificationRecentlyNotified(n model.Notification) (bool, error) {
+	var detail response.SpottedPetNotificationDetail
 	if err := json.Unmarshal(n.Detail, &detail); err != nil {
 		return false, err
 	}

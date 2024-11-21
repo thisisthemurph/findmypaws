@@ -6,12 +6,13 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"paws/internal/database/model"
+	"paws/internal/response"
 	"time"
 
 	"github.com/google/uuid"
 	"paws/internal/auth"
 	"paws/internal/repository"
-	"paws/internal/types"
 	"paws/pkg/blight"
 )
 
@@ -69,7 +70,7 @@ func (h *PetsHandler) GetPetByID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(pet)
+	json.NewEncoder(w).Encode(response.NewPetFromModel(&pet))
 }
 
 func (h *PetsHandler) ListPets(w http.ResponseWriter, r *http.Request) {
@@ -84,14 +85,18 @@ func (h *PetsHandler) ListPets(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(pets)
+
+	results := make([]response.Pet, len(pets))
+	for i, p := range pets {
+		results[i] = response.NewPetFromModel(&p)
+	}
+	json.NewEncoder(w).Encode(results)
 }
 
 type NewPetRequest struct {
-	Name string         `json:"name" validate:"required"`
-	Type *types.PetType `json:"type"`
-	Tags types.PetTags  `json:"tags"`
-	DOB  *time.Time     `json:"dob"`
+	Name string     `json:"name"`
+	Type *string    `json:"type"`
+	DOB  *time.Time `json:"dob"`
 }
 
 func (h *PetsHandler) CreateNewPet(w http.ResponseWriter, r *http.Request) {
@@ -121,11 +126,10 @@ func (h *PetsHandler) CreateNewPet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pet := &types.Pet{
+	pet := &model.Pet{
 		UserID: user.ID,
 		Name:   req.Name,
 		Type:   req.Type,
-		Tags:   req.Tags,
 		DOB:    req.DOB,
 	}
 
@@ -136,14 +140,14 @@ func (h *PetsHandler) CreateNewPet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(pet)
+	json.NewEncoder(w).Encode(response.NewPetFromModel(pet))
 }
 
 type UpdatePetRequest struct {
-	Type  *types.PetType `json:"type" validate:"required,max=16"`
-	Name  string         `json:"name" validate:"required"`
-	DOB   *time.Time     `json:"dob"`
-	Blurb *string        `json:"blurb"`
+	Type  *string    `json:"type" validate:"required,max=16"`
+	Name  string     `json:"name" validate:"required"`
+	DOB   *time.Time `json:"dob"`
+	Blurb *string    `json:"blurb"`
 }
 
 func (h *PetsHandler) UpdatePet(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +167,7 @@ func (h *PetsHandler) UpdatePet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "a name must be provided", http.StatusBadRequest)
 		return
 	}
-	if req.Type == nil || len(string(*req.Type)) == 0 || len(string(*req.Type)) > 16 {
+	if req.Type == nil || len(*req.Type) == 0 || len(*req.Type) > 16 {
 		http.Error(w, "invalid type", http.StatusBadRequest)
 		return
 	}
@@ -201,7 +205,7 @@ func (h *PetsHandler) UpdatePet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(pet)
+	json.NewEncoder(w).Encode(response.NewPetFromModel(&pet))
 }
 
 type NewTagRequest struct {
@@ -232,7 +236,7 @@ func (h *PetsHandler) AddTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pet, err := h.PetRepo.Get(petID)
+	petModel, err := h.PetRepo.Get(petID)
 	if err != nil {
 		if errors.As(err, &repository.ErrNotFound) {
 			http.Error(w, "pet not found", http.StatusNotFound)
@@ -242,21 +246,26 @@ func (h *PetsHandler) AddTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if pet.UserID != user.ID {
+	if petModel.UserID != user.ID {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	}
 
-	if pet.Tags == nil {
-		pet.Tags = make(types.PetTags)
+	currentTags := response.NewPetTags(petModel.Tags)
+	currentTags[req.Key] = req.Value
+	encodedTags, err := json.Marshal(currentTags)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
-	pet.Tags[req.Key] = req.Value
-	if err := h.PetRepo.Update(&pet); err != nil {
+
+	petModel.Tags = encodedTags
+	if err := h.PetRepo.Update(&petModel); err != nil {
 		h.Logger.Error("error updating pet", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(pet)
+	json.NewEncoder(w).Encode(response.NewPetFromModel(&petModel))
 }
 
 func (h *PetsHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
@@ -273,7 +282,7 @@ func (h *PetsHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 	tagKey := r.PathValue("key")
 
-	pet, err := h.PetRepo.Get(petID)
+	petModel, err := h.PetRepo.Get(petID)
 	if err != nil {
 		if errors.As(err, &repository.ErrNotFound) {
 			http.Error(w, "pet not found", http.StatusNotFound)
@@ -283,23 +292,27 @@ func (h *PetsHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if pet.UserID != user.ID {
+	if petModel.UserID != user.ID {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	if pet.Tags == nil {
-		pet.Tags = make(types.PetTags)
+	currentTags := response.NewPetTags(petModel.Tags)
+	delete(currentTags, tagKey)
+	encodedTags, err := json.Marshal(currentTags)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
 
-	delete(pet.Tags, tagKey)
-	if err := h.PetRepo.Update(&pet); err != nil {
+	petModel.Tags = encodedTags
+	if err := h.PetRepo.Update(&petModel); err != nil {
 		h.Logger.Error("error updating pet", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(pet)
+	json.NewEncoder(w).Encode(response.NewPetFromModel(&petModel))
 }
 
 func (h *PetsHandler) DeletePet(w http.ResponseWriter, r *http.Request) {
@@ -315,7 +328,7 @@ func (h *PetsHandler) DeletePet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existingPet, err := h.PetRepo.Get(petID)
+	existingPetModel, err := h.PetRepo.Get(petID)
 	if err != nil {
 		if errors.As(err, &repository.ErrNotFound) {
 			http.Error(w, "pet not found", http.StatusNotFound)
@@ -325,7 +338,7 @@ func (h *PetsHandler) DeletePet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if existingPet.UserID != user.ID {
+	if existingPetModel.UserID != user.ID {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -336,7 +349,7 @@ func (h *PetsHandler) DeletePet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(existingPet)
+	json.NewEncoder(w).Encode(response.NewPetFromModel(&existingPetModel))
 }
 
 func (h *PetsHandler) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
@@ -403,6 +416,7 @@ type NewAlertRequest struct {
 func (a NewAlertRequest) IsAnonymous() bool {
 	return a.AlertingAnonymousUserId != "" && a.AlertingUserId == ""
 }
+
 func (h *PetsHandler) CreateNotificationOnPetPageVisit(w http.ResponseWriter, r *http.Request) {
 	alertCreatedResponse := func(w http.ResponseWriter, created bool) {
 		status := http.StatusOK
@@ -433,30 +447,19 @@ func (h *PetsHandler) CreateNotificationOnPetPageVisit(w http.ResponseWriter, r 
 		return req, petID, nil
 	}
 
-	makeSpottedPetNotificationModel := func(req NewAlertRequest, pet types.Pet) (types.NotificationModel, error) {
+	makeSpottedPetNotificationModel := func(req NewAlertRequest, pet model.Pet) (model.Notification, error) {
 		spotterName := ""
 		if !req.IsAnonymous() {
 			spotterName = "a registered user"
 		}
 
-		detail := types.SpottedPetNotificationDetail{
+		notificationModel, err := model.NewSpottedPetNotification(pet.UserID, model.SpottedPetNotificationDetail{
 			SpotterName: spotterName,
-			PetID:       pet.ID,
-			PetName:     pet.Name,
 			IsAnonymous: req.IsAnonymous(),
-		}
-
-		detailJSON, err := json.Marshal(detail)
-		if err != nil {
-			h.Logger.Error("failed to marshal notification detail JSON", "detail", detail, "error", err)
-			return types.NotificationModel{}, errors.New("error marshalling notification detail")
-		}
-
-		return types.NotificationModel{
-			UserID: pet.UserID,
-			Type:   types.SpottedPetNotification,
-			Detail: detailJSON,
-		}, nil
+			PetName:     pet.Name,
+			PetID:       pet.ID,
+		})
+		return notificationModel, err
 	}
 
 	user := auth.GetUserFromContext(r.Context())
@@ -485,14 +488,14 @@ func (h *PetsHandler) CreateNotificationOnPetPageVisit(w http.ResponseWriter, r 
 		return
 	}
 
-	model, err := makeSpottedPetNotificationModel(req, pet)
+	notificationModel, err := makeSpottedPetNotificationModel(req, pet)
 	if err != nil {
 		h.Logger.Error("failed to create notification model", "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	recentlyNotified, err := h.NotificationRepo.RecentlyNotified(model)
+	recentlyNotified, err := h.NotificationRepo.RecentlyNotified(notificationModel)
 	if err != nil {
 		h.Logger.Error("error determining if recently notified", "error", err)
 	}
@@ -501,7 +504,7 @@ func (h *PetsHandler) CreateNotificationOnPetPageVisit(w http.ResponseWriter, r 
 		return
 	}
 
-	if err := h.NotificationRepo.Create(&model); err != nil {
+	if err := h.NotificationRepo.Create(&notificationModel); err != nil {
 		h.Logger.Error("error creating notification", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

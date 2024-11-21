@@ -8,8 +8,9 @@ import (
 	"log/slog"
 	"net/http"
 	"paws/internal/auth"
+	"paws/internal/database/model"
 	"paws/internal/repository"
-	"paws/internal/types"
+	"paws/internal/response"
 )
 
 func NewConversationHandler(
@@ -49,7 +50,7 @@ type ConversationParticipant struct {
 }
 
 type ConversationResponse struct {
-	types.Conversation
+	response.Conversation
 	Pet              ConversationPetDetail   `json:"pet"`
 	Title            string                  `json:"title"`
 	Participant      ConversationParticipant `json:"participant"`
@@ -87,19 +88,19 @@ func (h *ConversationHandler) ListConversations(w http.ResponseWriter, r *http.R
 		h.Logger.Error("failed to determine participant ID", "error", err)
 	}
 
-	conversations, err := h.ConversationRepo.List(participantID)
+	conversationModels, err := h.ConversationRepo.List(participantID)
 	if err != nil {
 		h.Logger.Error("failed to list conversations", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	if len(conversations) == 0 {
+	if len(conversationModels) == 0 {
 		json.NewEncoder(w).Encode([]ConversationResponse{})
 		return
 	}
 
-	primaryUserID := conversations[0].PrimaryParticipantID
+	primaryUserID := conversationModels[0].PrimaryParticipantID
 	pets, err := h.PetRepository.List(primaryUserID)
 	if err != nil {
 		h.Logger.Error("failed to list conversations", "error", err)
@@ -109,20 +110,21 @@ func (h *ConversationHandler) ListConversations(w http.ResponseWriter, r *http.R
 	for _, pet := range pets {
 		petLookup[pet.ID] = ConversationPetDetail{
 			Name: pet.Name,
-			Type: string(*pet.Type),
+			Type: string(response.NewPetType(pet.Type)),
 		}
 	}
 
-	response := make([]ConversationResponse, len(conversations))
-	for i, conversation := range conversations {
-		petDetail, petFound := petLookup[conversation.Identifier]
-		participant, otherParticipant := h.getParticipants(participantID, conversation, petLookup)
+	resp := make([]ConversationResponse, len(conversationModels))
+	for i, conversationModel := range conversationModels {
+		conversation := response.NewConversationFromModel(conversationModel)
+		petDetail, petFound := petLookup[conversationModel.Identifier]
+		participant, otherParticipant := h.getParticipantsForConversation(participantID, conversationModel, petLookup)
 		title := otherParticipant.Name
 		if petFound {
 			title = fmt.Sprintf("%s - %s", otherParticipant.Name, petDetail.Name)
 		}
 
-		response[i] = ConversationResponse{
+		resp[i] = ConversationResponse{
 			Conversation:     conversation,
 			Pet:              petDetail,
 			Participant:      participant,
@@ -131,7 +133,7 @@ func (h *ConversationHandler) ListConversations(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (h *ConversationHandler) GetConversationByIdentifier(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +151,7 @@ func (h *ConversationHandler) GetConversationByIdentifier(w http.ResponseWriter,
 		return
 	}
 
-	conversation, err := h.ConversationRepo.Get(identifier, currentParticipantID)
+	conversationModel, err := h.ConversationRepo.Get(identifier, currentParticipantID)
 	if err != nil {
 		h.Logger.Error("failed to determine conversation", "error", err)
 		if errors.Is(err, repository.ErrNotFound) {
@@ -160,10 +162,10 @@ func (h *ConversationHandler) GetConversationByIdentifier(w http.ResponseWriter,
 		return
 	}
 
-	petLookup := h.getPetLookup(conversation.PrimaryParticipantID)
+	petLookup := h.getPetLookup(conversationModel.PrimaryParticipantID)
 
-	petDetail, petFound := petLookup[conversation.Identifier]
-	currentParticipant, otherParticipant := h.getParticipants(currentParticipantID, *conversation, petLookup)
+	petDetail, petFound := petLookup[conversationModel.Identifier]
+	currentParticipant, otherParticipant := h.getParticipantsForConversation(currentParticipantID, *conversationModel, petLookup)
 
 	title := otherParticipant.Name
 	if petFound {
@@ -171,7 +173,7 @@ func (h *ConversationHandler) GetConversationByIdentifier(w http.ResponseWriter,
 	}
 
 	response := ConversationResponse{
-		Conversation:     *conversation,
+		Conversation:     response.NewConversationFromModel(*conversationModel),
 		Pet:              petDetail,
 		Participant:      currentParticipant,
 		OtherParticipant: otherParticipant,
@@ -181,7 +183,11 @@ func (h *ConversationHandler) GetConversationByIdentifier(w http.ResponseWriter,
 	json.NewEncoder(w).Encode(response)
 }
 
-func (h *ConversationHandler) getParticipants(currentParticipantID string, conversation types.Conversation, petLookup map[uuid.UUID]ConversationPetDetail) (ConversationParticipant, ConversationParticipant) {
+func (h *ConversationHandler) getParticipantsForConversation(
+	currentParticipantID string,
+	conversation model.Conversation,
+	petLookup map[uuid.UUID]ConversationPetDetail,
+) (ConversationParticipant, ConversationParticipant) {
 	participant := ConversationParticipant{}
 	otherParticipant := ConversationParticipant{}
 
@@ -229,7 +235,7 @@ func (h *ConversationHandler) getPetLookup(primaryParticipantID string) map[uuid
 	for _, pet := range pets {
 		petLookup[pet.ID] = ConversationPetDetail{
 			Name: pet.Name,
-			Type: string(*pet.Type),
+			Type: string(response.NewPetType(pet.Type)),
 		}
 	}
 	return petLookup

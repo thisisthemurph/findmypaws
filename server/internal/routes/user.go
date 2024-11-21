@@ -7,8 +7,9 @@ import (
 	"log/slog"
 	"net/http"
 	"paws/internal/auth"
+	"paws/internal/database/model"
 	"paws/internal/repository"
-	"paws/internal/types"
+	"paws/internal/response"
 	"sync"
 )
 
@@ -37,20 +38,10 @@ func (h *UsersHandler) RegisterRoutes(mux *http.ServeMux, mf MiddlewareFunc) {
 	mux.HandleFunc("GET /api/v1/user/notifications", mf(h.ListNotifications))
 	mux.HandleFunc("POST /api/v1/user/notifications/read-all", mf(h.MarkAllNotificationsAsSeen))
 	mux.HandleFunc("PUT /api/v1/user/anonymous/{id}", mf(h.UpdateAnonymousUser))
-
-	mux.HandleFunc("GET /api/v1/test", mf(h.Test))
 }
 
 type UpdateAnonymousUserRequest struct {
 	Name string `json:"name"`
-}
-
-func (h *UsersHandler) Test(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(struct {
-		Name string `json:"name"`
-	}{
-		Name: "this is only a test",
-	})
 }
 
 func (h *UsersHandler) UpdateAnonymousUser(w http.ResponseWriter, r *http.Request) {
@@ -68,11 +59,11 @@ func (h *UsersHandler) UpdateAnonymousUser(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user := types.AnonymousUser{
+	userModel := model.AnonymousUser{
 		ID:   anonymousUserId,
 		Name: req.Name,
 	}
-	if err := h.UserRepo.UpsertAnonymousUser(&user); err != nil {
+	if err := h.UserRepo.UpsertAnonymousUser(&userModel); err != nil {
 		h.Logger.Error("error upserting anonymous user", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -80,7 +71,7 @@ func (h *UsersHandler) UpdateAnonymousUser(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(response.NewAnonymousUserFromModel(userModel))
 }
 
 func (h *UsersHandler) ListNotifications(w http.ResponseWriter, r *http.Request) {
@@ -102,19 +93,19 @@ func (h *UsersHandler) ListNotifications(w http.ResponseWriter, r *http.Request)
 		petsLookup[pet.ID] = pet.Name
 	}
 
-	notifications := make([]types.Notification, len(notificationModels))
+	notifications := make([]response.Notification, len(notificationModels))
 	var wg sync.WaitGroup
 	wg.Add(len(notificationModels))
-	for i, model := range notificationModels {
-		go func(i int, model types.NotificationModel) {
+	for i, notificationModel := range notificationModels {
+		go func(i int, model model.Notification) {
 			defer wg.Done()
-			n, ok := model.Notification()
+			n, ok := response.NewNotificationFromModel(notificationModel)
 			if !ok {
 				h.Logger.Error("error parsing notification model", "model", model)
 				return
 			}
 			notifications[i] = n
-		}(i, model)
+		}(i, notificationModel)
 	}
 
 	wg.Wait()

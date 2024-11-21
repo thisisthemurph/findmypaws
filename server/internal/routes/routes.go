@@ -22,6 +22,7 @@ func BuildRoutesServerMux(app *application.App) *http.ServeMux {
 	repos := app.Repositories
 
 	handlers := []RouteRegister{
+		NewPingPongHandler(),
 		NewUsersHandler(repos.UserRepository, repos.NotificationRepository, repos.PetRepository, logger),
 		NewPetsHandler(repos.NotificationRepository, repos.PetRepository, logger),
 		NewConversationHandler(repos.ConversationRepository, repos.PetRepository, repos.UserRepository, logger),
