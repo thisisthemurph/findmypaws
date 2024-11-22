@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="SqlDialectMappings">
-    <file url="file://$PROJECT_DIR$/internal/database/migrations/1728753330_updated_at_fn.up.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/internal/database/migrations/1728753350_create_pets_table.down.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/internal/database/migrations/1728753350_create_pets_table.up.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/internal/database/migrations/1730274739_create_notifications_table.down.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/internal/database/migrations/1730274739_create_notifications_table.up.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/internal/database/migrations/1730647357_create_messages_table.down.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/internal/database/migrations/1730647357_create_messages_table.up.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/internal/database/migrations/1731309105_create_anonymous_users_table.up.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/internal/database/migrations/1732001423_create_users_table.up.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/cmd/migrate/migrations/1728753330_updated_at_fn.up.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/cmd/migrate/migrations/1728753350_create_pets_table.down.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/cmd/migrate/migrations/1728753350_create_pets_table.up.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/cmd/migrate/migrations/1730274739_create_notifications_table.down.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/cmd/migrate/migrations/1730274739_create_notifications_table.up.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/cmd/migrate/migrations/1730647357_create_messages_table.down.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/cmd/migrate/migrations/1730647357_create_messages_table.up.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/cmd/migrate/migrations/1731309105_create_anonymous_users_table.up.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/cmd/migrate/migrations/1732001423_create_users_table.up.sql" dialect="PostgreSQL" />
   </component>
 </project>
