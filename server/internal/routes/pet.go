@@ -70,7 +70,7 @@ func (h *PetsHandler) GetPetByID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(response.NewPetFromModel(&pet))
+	response.JSON(w, response.NewPetFromModel(&pet))
 }
 
 func (h *PetsHandler) ListPets(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +90,7 @@ func (h *PetsHandler) ListPets(w http.ResponseWriter, r *http.Request) {
 	for i, p := range pets {
 		results[i] = response.NewPetFromModel(&p)
 	}
-	json.NewEncoder(w).Encode(results)
+	response.JSON(w, results)
 }
 
 type NewPetRequest struct {
@@ -140,7 +140,7 @@ func (h *PetsHandler) CreateNewPet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response.NewPetFromModel(pet))
+	response.JSON(w, response.NewPetFromModel(pet))
 }
 
 type UpdatePetRequest struct {
@@ -204,8 +204,7 @@ func (h *PetsHandler) UpdatePet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-
-	json.NewEncoder(w).Encode(response.NewPetFromModel(&pet))
+	response.JSON(w, response.NewPetFromModel(&pet))
 }
 
 type NewTagRequest struct {
@@ -265,7 +264,7 @@ func (h *PetsHandler) AddTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(response.NewPetFromModel(&petModel))
+	response.JSON(w, response.NewPetFromModel(&petModel))
 }
 
 func (h *PetsHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
@@ -311,8 +310,7 @@ func (h *PetsHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-
-	json.NewEncoder(w).Encode(response.NewPetFromModel(&petModel))
+	response.JSON(w, response.NewPetFromModel(&petModel))
 }
 
 func (h *PetsHandler) DeletePet(w http.ResponseWriter, r *http.Request) {
@@ -348,8 +346,7 @@ func (h *PetsHandler) DeletePet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-
-	json.NewEncoder(w).Encode(response.NewPetFromModel(&existingPetModel))
+	response.JSON(w, response.NewPetFromModel(&existingPetModel))
 }
 
 func (h *PetsHandler) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
@@ -383,10 +380,7 @@ func (h *PetsHandler) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to save file", http.StatusBadRequest)
 		return
 	}
-
-	json.NewEncoder(w).Encode(map[string]string{
-		"avatar_uri": path,
-	})
+	response.JSON(w, map[string]string{"avatar_uri": path})
 }
 
 func (h *PetsHandler) GetAvatar(w http.ResponseWriter, r *http.Request) {
@@ -423,11 +417,7 @@ func (h *PetsHandler) CreateNotificationOnPetPageVisit(w http.ResponseWriter, r 
 		if created {
 			status = http.StatusCreated
 		}
-
-		w.WriteHeader(status)
-		json.NewEncoder(w).Encode(map[string]bool{
-			"alert_created": created,
-		})
+		response.WithStatus(w, status).SendJSON(map[string]bool{"alert_created": created})
 	}
 
 	processAndValidateRequest := func(r *http.Request) (NewAlertRequest, uuid.UUID, error) {

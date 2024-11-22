@@ -133,7 +133,7 @@ func (h *ConversationHandler) ListConversations(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	response.JSON(w, resp)
 }
 
 func (h *ConversationHandler) GetConversationByIdentifier(w http.ResponseWriter, r *http.Request) {
@@ -172,15 +172,14 @@ func (h *ConversationHandler) GetConversationByIdentifier(w http.ResponseWriter,
 		title = fmt.Sprintf("%s - %s", otherParticipant.Name, petDetail.Name)
 	}
 
-	response := ConversationResponse{
+	conversation := ConversationResponse{
 		Conversation:     response.NewConversationFromModel(*conversationModel),
 		Pet:              petDetail,
 		Participant:      currentParticipant,
 		OtherParticipant: otherParticipant,
 		Title:            title,
 	}
-
-	json.NewEncoder(w).Encode(response)
+	response.JSON(w, conversation)
 }
 
 func (h *ConversationHandler) getParticipantsForConversation(

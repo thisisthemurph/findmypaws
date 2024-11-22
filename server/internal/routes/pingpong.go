@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"encoding/json"
 	"net/http"
+	"paws/internal/response"
 )
 
 type PingPongHandler struct{}
@@ -16,5 +16,5 @@ func (h *PingPongHandler) RegisterRoutes(mux *http.ServeMux, mf MiddlewareFunc) 
 }
 
 func (h *PingPongHandler) Ping(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode("pong")
+	response.Text(w, "pong")
 }

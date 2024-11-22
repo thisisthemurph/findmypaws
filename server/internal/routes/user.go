@@ -63,15 +63,13 @@ func (h *UsersHandler) UpdateAnonymousUser(w http.ResponseWriter, r *http.Reques
 		ID:   anonymousUserId,
 		Name: req.Name,
 	}
+
 	if err := h.UserRepo.UpsertAnonymousUser(&userModel); err != nil {
 		h.Logger.Error("error upserting anonymous user", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response.NewAnonymousUserFromModel(userModel))
+	response.JSON(w, response.NewAnonymousUserFromModel(userModel))
 }
 
 func (h *UsersHandler) ListNotifications(w http.ResponseWriter, r *http.Request) {
@@ -109,10 +107,7 @@ func (h *UsersHandler) ListNotifications(w http.ResponseWriter, r *http.Request)
 	}
 
 	wg.Wait()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(notifications)
+	response.JSON(w, notifications)
 }
 
 func (h *UsersHandler) MarkAllNotificationsAsSeen(w http.ResponseWriter, r *http.Request) {
