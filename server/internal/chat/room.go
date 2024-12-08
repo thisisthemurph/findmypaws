@@ -29,12 +29,14 @@ type RoomKey struct {
 	Identifier     uuid.UUID
 }
 
+// String returns a string representation of the RoomKey.
 func (rk RoomKey) String() string {
 	return fmt.Sprintf("room:%v:%d", rk.Identifier, rk.ConversationID)
 }
 
 type RoomList map[string]*Room
 
+// NewRoomKey creates a new instance of a RoomKey with the given conversation ID and identifier.
 func NewRoomKey(conversationID int64, identifier uuid.UUID) RoomKey {
 	return RoomKey{
 		ConversationID: conversationID,
@@ -42,6 +44,7 @@ func NewRoomKey(conversationID int64, identifier uuid.UUID) RoomKey {
 	}
 }
 
+// Room represents a room for a single conversation.
 type Room struct {
 	key     RoomKey
 	manager *Manager
@@ -57,6 +60,7 @@ type Room struct {
 	handlers *eventHandlers
 }
 
+// NewRoom instantiates a new Room.
 func NewRoom(conversationID int64, identifier uuid.UUID, manager *Manager) *Room {
 	roomKey := NewRoomKey(conversationID, identifier)
 	room := &Room{
@@ -74,6 +78,7 @@ func NewRoom(conversationID int64, identifier uuid.UUID, manager *Manager) *Room
 	return room
 }
 
+// ServeWS takes the initial HTTP request and updates it to a WebSocket connection.
 func (r *Room) ServeWS(w http.ResponseWriter, req *http.Request) {
 	roomID := req.URL.Query().Get("r")
 	if roomID == "" {
@@ -95,6 +100,7 @@ func (r *Room) ServeWS(w http.ResponseWriter, req *http.Request) {
 	client.read()
 }
 
+// HandleEvent performs the appropriate action for the Event depending on the event type.
 func (r *Room) HandleEvent(e Event, c *Client) error {
 	switch e.Type {
 	case EventTypeSendMessage:
@@ -106,6 +112,7 @@ func (r *Room) HandleEvent(e Event, c *Client) error {
 	}
 }
 
+// Run runs the room in an infinite loop handling any events that occur.
 func (r *Room) run() {
 	for {
 		select {
@@ -127,12 +134,16 @@ func (r *Room) run() {
 	}
 }
 
+// addClient adds a new Client (user) to the room.
+// The client will be overridden if they already exist.
 func (r *Room) addClient(client *Client) {
 	r.Lock()
 	defer r.Unlock()
 	r.clients[client] = struct{}{}
 }
 
+// removeClient removes a client (user) from the room if they exist.
+// Nothing happens if the client is not in the room.
 func (r *Room) removeClient(client *Client) {
 	r.Lock()
 	defer r.Unlock()
@@ -146,6 +157,7 @@ func (r *Room) removeClient(client *Client) {
 	}
 }
 
+// PersistMessage stores a message in the database.
 func (r *Room) PersistMessage(message NewMessageEvent) (*model.Message, error) {
 	m := &model.Message{
 		ConversationID: r.key.ConversationID,
@@ -157,6 +169,7 @@ func (r *Room) PersistMessage(message NewMessageEvent) (*model.Message, error) {
 	return m, err
 }
 
+// EgressHistoricalMessages sends historical messages to a specific client (user). A client belongs to a specific room.
 func (r *Room) EgressHistoricalMessages(client *Client) error {
 	messages, err := r.manager.conversationRepo.ListHistoricalMessages(r.key.ConversationID, time.Now(), 10)
 	if err != nil {
@@ -191,6 +204,7 @@ func (r *Room) EgressHistoricalMessages(client *Client) error {
 	return nil
 }
 
+// checkOrigin determines if the requesting URL is permitted.
 func checkOrigin(r *http.Request) bool {
 	return true
 }

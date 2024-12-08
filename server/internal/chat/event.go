@@ -70,6 +70,9 @@ func newEventHandlers(room *Room) *eventHandlers {
 	}
 }
 
+// SendMessageHandler handles the sending of a new message by a client within a room.
+//   - the message is persisted in the database.
+//   - an event is sent to each of the room's clients.
 func (h *eventHandlers) SendMessageHandler(e Event, c *Client) error {
 	h.logger = h.logger.With("handler", "SendMessageHandler")
 
@@ -103,6 +106,9 @@ func (h *eventHandlers) SendMessageHandler(e Event, c *Client) error {
 	return nil
 }
 
+// EmojiReactHandler handles emoji reactions to messages.
+//   - the database is updated to reflect the new emoji reaction.
+//   - an event is sent to all room clients to notify them of the emoji reaction.
 func (h *eventHandlers) EmojiReactHandler(e Event, c *Client) error {
 	h.logger = h.logger.With("handler", "EmojiReactHandler")
 

@@ -11,6 +11,7 @@ import (
 
 var ErrUnauthorized = errors.New("unauthorized")
 
+// Manager is responsible for managing all the conversation rooms.
 type Manager struct {
 	rooms map[string]*Room
 	sync.RWMutex
@@ -19,6 +20,7 @@ type Manager struct {
 	logger           *slog.Logger
 }
 
+// NewManager creates an instance of a new manager.
 func NewManager(db *sqlx.DB, logger *slog.Logger) *Manager {
 	return &Manager{
 		rooms:            make(RoomList),
@@ -27,6 +29,8 @@ func NewManager(db *sqlx.DB, logger *slog.Logger) *Manager {
 	}
 }
 
+// GetOrCreateRoom gets the room if it already exists.
+// The conversation is added to the database if it does not exist.
 func (m *Manager) GetOrCreateRoom(identifier uuid.UUID, participantID string) (*Room, error) {
 	m.Lock()
 	defer m.Unlock()

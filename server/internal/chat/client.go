@@ -9,8 +9,12 @@ import (
 
 const pongWait = 10 * time.Second
 
+// ClientList represents a list of Client.
 type ClientList map[*Client]struct{}
 
+// Client represents a user within a Room.
+// A Room can have only one instance of each Client
+// A user can be represented by multiple clients in different rooms.
 type Client struct {
 	room   *Room
 	socket *websocket.Conn
@@ -18,6 +22,7 @@ type Client struct {
 	logger *slog.Logger
 }
 
+// NewClient creates an instance of a Client.
 func NewClient(ws *websocket.Conn, room *Room) *Client {
 	return &Client{
 		room:   room,
@@ -27,6 +32,8 @@ func NewClient(ws *websocket.Conn, room *Room) *Client {
 	}
 }
 
+// read starts an infinite loop for the client, checking for new messages on the client's socket.
+// If a message is received, it is unmarshalled and sent to the room for handling.
 func (c *Client) read() {
 	defer func() {
 		c.room.removeClient(c)
