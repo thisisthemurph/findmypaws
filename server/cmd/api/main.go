@@ -5,27 +5,43 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"paws/internal/application"
 	"paws/internal/routes"
 	"paws/pkg/migrator"
 )
 
 func main() {
+	logger := log.New(os.Stdout, "API: ", log.LstdFlags|log.Lshortfile)
+	if err := run(logger); err != nil {
+		logger.Fatal(err)
+	}
+}
+
+func run(logger *log.Logger) error {
+	logger.Println("Starting API server...")
 	app, err := application.NewApp()
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to create application: %w", err)
 	}
 
 	if err := migrateDatabase(app); err != nil {
-		log.Fatal("failed to migrate database", err)
+		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 
+	logger.Println("Building application...")
 	if err := app.Build(); err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to build application: %w", err)
 	}
 
+	logger.Println("Setting up routes...")
 	mux := routes.BuildRoutesServerMux(app)
-	http.ListenAndServe(app.Config.Host, mux)
+
+	logger.Printf("Starting server at %s...", app.Config.Host)
+	if err := http.ListenAndServe(app.Config.Host, mux); err != nil {
+		return fmt.Errorf("failed to start server: %w", err)
+	}
+	return nil
 }
 
 func migrateDatabase(app *application.App) error {
