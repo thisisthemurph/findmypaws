@@ -11,18 +11,18 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	"paws/internal/chat"
+
 	"paws/internal/database/model"
 	"paws/internal/repository"
+	"paws/pkg/chat"
 )
 
 type App struct {
 	DB           *sqlx.DB
 	ChatManager  *chat.Manager
 	Repositories *repository.Repositories
-	//ServerMux    *http.ServeMux
-	Logger *slog.Logger
-	Config AppConfig
+	Logger       *slog.Logger
+	Config       AppConfig
 }
 
 func NewApp() (*App, error) {
@@ -52,7 +52,6 @@ func (app *App) Build() error {
 	app.configureRepositories()
 	app.configureChatManager()
 
-	//app.ServerMux = routes.BuildRoutesServerMux(app)
 	return nil
 }
 
