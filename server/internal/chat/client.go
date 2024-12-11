@@ -2,9 +2,10 @@ package chat
 
 import (
 	"encoding/json"
-	"github.com/gorilla/websocket"
 	"log/slog"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 const pongWait = 10 * time.Second
@@ -14,7 +15,7 @@ type ClientList map[*Client]struct{}
 
 // Client represents a user within a Room.
 // A Room can have only one instance of each Client
-// A user can be represented by multiple clients in different rooms.
+// A user can be in multiple rooms, represented by different clients.
 type Client struct {
 	room   *Room
 	socket *websocket.Conn
@@ -69,10 +70,10 @@ func (c *Client) read() {
 }
 
 func (c *Client) write() {
-	for m := range c.egress {
-		data, err := json.Marshal(m)
+	for event := range c.egress {
+		data, err := json.Marshal(event)
 		if err != nil {
-			c.logger.Error("error parsing m JSON", "error", err)
+			c.logger.Error("error parsing event JSON", "error", err)
 			return
 		}
 		if err := c.socket.WriteMessage(websocket.TextMessage, data); err != nil {
