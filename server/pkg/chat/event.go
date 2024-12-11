@@ -85,12 +85,12 @@ func (h *eventHandlers) SendMessageHandler(e Event, c *Client) error {
 	broadcast.SendMessageEvent = msgEvent
 	broadcast.Timestamp = time.Now()
 
-	message, err := h.room.PersistMessage(broadcast)
+	messageID, err := h.room.manager.callbacks.HandleNewMessage(h.room.key.ConversationID, broadcast)
 	if err != nil {
 		h.logger.Error("error persisting message in database", "error", err)
 	}
 
-	broadcast.ID = message.ID
+	broadcast.ID = messageID
 	data, err := json.Marshal(broadcast)
 	if err != nil {
 		return fmt.Errorf("could not marshal new message: %w", err)
@@ -118,19 +118,15 @@ func (h *eventHandlers) EmojiReactHandler(e Event, c *Client) error {
 	}
 	h.logger.Debug("emoji", "event", emojiEvent)
 
-	message, err := h.room.manager.conversationRepo.GetMessage(emojiEvent.ConversationID, emojiEvent.MessageID)
-	if err != nil {
-		return fmt.Errorf("could not get message from conversation: %w", err)
-	}
-
+	var emojiKey *string
 	if emojiEvent.EmojiKey == "" {
-		message.EmojiReaction = nil
+		emojiKey = nil
 	} else {
-		message.EmojiReaction = &emojiEvent.EmojiKey
+		emojiKey = &emojiEvent.EmojiKey
 	}
 
-	if err := h.room.manager.conversationRepo.UpdateMessage(message); err != nil {
-		return fmt.Errorf("could not update message: %w", err)
+	if err := h.room.manager.callbacks.HandleEmojiUpdate(emojiEvent.ConversationID, emojiEvent.MessageID, emojiKey); err != nil {
+		return fmt.Errorf("could not update message emoji: %w", err)
 	}
 
 	var emoji *string
@@ -141,7 +137,7 @@ func (h *eventHandlers) EmojiReactHandler(e Event, c *Client) error {
 	var outgoingEvent Event
 	outgoingEvent.Type = EventTypeNewEmojiReact
 	eventData := NewEmojiReactEvent{
-		MessageID: message.ID,
+		MessageID: emojiEvent.MessageID,
 		Emoji:     emoji,
 	}
 	data, err := json.Marshal(eventData)

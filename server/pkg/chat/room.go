@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"paws/internal/database/model"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -157,34 +155,22 @@ func (r *Room) removeClient(client *Client) {
 	}
 }
 
-// PersistMessage stores a message in the database.
-func (r *Room) PersistMessage(message NewMessageEvent) (*model.Message, error) {
-	m := &model.Message{
-		ConversationID: r.key.ConversationID,
-		SenderID:       message.SenderID,
-		Text:           message.Text,
-	}
-
-	err := r.manager.conversationRepo.CreateMessage(m)
-	return m, err
-}
-
 // EgressHistoricalMessages sends historical messages to a specific client (user). A client belongs to a specific room.
 func (r *Room) EgressHistoricalMessages(client *Client) error {
-	messages, err := r.manager.conversationRepo.ListHistoricalMessages(r.key.ConversationID, time.Now(), 10)
+	messages, err := r.manager.callbacks.FetchHistoricalMessages(r.key.ConversationID)
 	if err != nil {
 		return fmt.Errorf("error querying historical messages: %w", err)
 	}
 
 	for _, message := range messages {
 		msg := NewMessageEvent{}
-		msg.ID = message.ID
-		msg.Text = message.Text
-		msg.SenderID = message.SenderID
-		msg.Timestamp = message.CreatedAt
+		msg.ID = message.ID()
+		msg.Text = message.Text()
+		msg.SenderID = message.SenderID()
+		msg.Timestamp = message.CreatedAt()
 
-		if message.EmojiReaction != nil {
-			emoji, ok := emojiKeyLookup[*message.EmojiReaction]
+		if message.EmojiReaction() != "" {
+			emoji, ok := emojiKeyLookup[message.EmojiReaction()]
 			if ok {
 				msg.EmojiReaction = &emoji
 			}

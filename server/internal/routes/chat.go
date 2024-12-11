@@ -2,10 +2,11 @@ package routes
 
 import (
 	"errors"
-	"github.com/google/uuid"
 	"log/slog"
 	"net/http"
-	"paws/internal/chat"
+
+	"github.com/google/uuid"
+	"paws/pkg/chat"
 )
 
 type ChatHandler struct {
