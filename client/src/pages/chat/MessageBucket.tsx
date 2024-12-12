@@ -21,7 +21,7 @@ export default function MessageBucket({
 }: MessageBucketProps) {
   return (
     <>
-      <div className="text-center my-2 text-slate-700">{name}</div>
+      <div className="text-center text-slate-700">{name}</div>
       {messages.map((message) => (
         <MessageBubble
           key={message.id}

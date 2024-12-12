@@ -30,6 +30,8 @@ export default function ChatPage() {
     emojiReact,
     messageCount,
     isLoaded: isChatLoaded,
+    otherParticipantIsTyping,
+    handleTypingDetection,
   } = useChat(conversationIdentifier!);
 
   const canSendMessage = isChatLoaded;
@@ -72,7 +74,7 @@ export default function ChatPage() {
       </section>
 
       <section ref={chatSectionRef} className="flex-grow p-4 overflow-y-auto">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
           {isChatLoaded &&
             participantId &&
             bucketedMessages.map((bucket) => (
@@ -87,6 +89,11 @@ export default function ChatPage() {
                 handleEmojiReact={(messageId, emojiKey) => emojiReact(messageId, emojiKey)}
               />
             ))}
+          {otherParticipantIsTyping && (
+            <div className="flex items-center px-4 rounded-xl bg-white shadow w-fit border">
+              <span className="loading loading-dots w-4 text-slate-600"></span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -132,6 +139,10 @@ export default function ChatPage() {
                         e.preventDefault();
                         form.handleSubmit(onSubmit)();
                       }
+                    }}
+                    onChange={(e) => {
+                      handleTypingDetection(e);
+                      field.onChange(e);
                     }}
                   ></textarea>
                 </FormControl>

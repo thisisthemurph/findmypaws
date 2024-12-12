@@ -105,6 +105,8 @@ func (r *Room) HandleEvent(e Event, c *Client) error {
 		return r.handlers.SendMessageHandler(e, c)
 	case EventTypeEmojiReact:
 		return r.handlers.EmojiReactHandler(e, c)
+	case EventTypeTyping:
+		return r.handlers.SendTypingIndication(e, c)
 	default:
 		return ErrUnsupportedEventType
 	}

@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import useParticipantId from "@/hooks/useParticipantId.ts";
 import { useApi } from "@/hooks/useApi.ts";
 import { Conversation } from "@/api/types.ts";
+import { isBefore, subSeconds } from "date-fns";
 
 const SendMessageSchema = z.object({
   text: z.string(),
@@ -28,6 +29,10 @@ const NewEmojiReactSchema = z.object({
   emoji: z.string().nullable(),
 });
 
+const TypingSchema = z.object({
+  participantId: z.string(),
+});
+
 const MessageEventSchema = z.discriminatedUnion("type", [
   // Event for sending a new message
   z.object({
@@ -48,6 +53,11 @@ const MessageEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("new_emoji_react"),
     payload: NewEmojiReactSchema,
+  }),
+  // Event to indicate a participant is typing
+  z.object({
+    type: z.literal("typing"),
+    payload: TypingSchema,
   }),
 ]);
 
@@ -126,10 +136,32 @@ export default function useChat(roomIdentifier: string) {
   const participantId = useParticipantId();
   const api = useApi();
 
+  const [otherParticipantIsTyping, setOtherParticipantIsTyping] = useState(false);
+  const [lastTypingIndicationSent, setLastTypingIndicationSent] = useState<Date | null>(null);
+  const otherParticipantTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const [isConversationDetailsLoaded, setIsConversationDetailsLoaded] = useState(false);
   const [isWebSocketLoaded, setIsWebSocketLoaded] = useState(false);
 
   const bucketedMessages = groupMessagesByTime(messages);
+
+  const handleTypingDetection = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+
+    const oneSecondAgo = subSeconds(new Date(), 1);
+    if (lastTypingIndicationSent === null || isBefore(lastTypingIndicationSent, oneSecondAgo)) {
+      sendTypingIndication();
+      setLastTypingIndicationSent(new Date());
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (otherParticipantTypingTimeoutRef.current) {
+        clearTimeout(otherParticipantTypingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const getChatTitle = async (identifier: string) => {
@@ -184,6 +216,20 @@ export default function useChat(roomIdentifier: string) {
             )
           );
           break;
+        case "typing":
+          if (!otherParticipantIsTyping) {
+            setOtherParticipantIsTyping(true);
+          }
+
+          if (otherParticipantTypingTimeoutRef.current) {
+            clearTimeout(otherParticipantTypingTimeoutRef.current);
+          }
+
+          otherParticipantTypingTimeoutRef.current = setTimeout(() => {
+            setOtherParticipantIsTyping(false);
+          }, 3000);
+
+          break;
         default:
           console.error("Unsupported event type", receivedEvent);
       }
@@ -236,6 +282,23 @@ export default function useChat(roomIdentifier: string) {
     webSocket.send(JSON.stringify(event));
   };
 
+  const sendTypingIndication = () => {
+    if (!webSocket) throw new Error("WebSocket not available");
+    if (!participantId) throw new Error("Participant ID is undefined");
+    if (!participantId) throw new Error("Participant ID is undefined");
+
+    console.log({ participantId });
+
+    const event: MessageEvent = {
+      type: "typing",
+      payload: {
+        participantId,
+      },
+    };
+
+    webSocket.send(JSON.stringify(event));
+  };
+
   return {
     roomId: roomIdentifier,
     participantId,
@@ -246,5 +309,7 @@ export default function useChat(roomIdentifier: string) {
     conversation,
     isLoaded: isWebSocketLoaded && isConversationDetailsLoaded,
     messageCount: messages.length,
+    otherParticipantIsTyping,
+    handleTypingDetection,
   };
 }

@@ -74,7 +74,7 @@ func newEventHandlers(room *Room) *eventHandlers {
 //   - the message is persisted in the database.
 //   - an event is sent to each of the room's clients.
 func (h *eventHandlers) SendMessageHandler(e Event, c *Client) error {
-	h.logger = h.logger.With("handler", "SendMessageHandler")
+	logger := h.logger.With("handler", "SendMessageHandler")
 
 	var msgEvent SendMessageEvent
 	if err := json.Unmarshal(e.Payload, &msgEvent); err != nil {
@@ -87,7 +87,7 @@ func (h *eventHandlers) SendMessageHandler(e Event, c *Client) error {
 
 	messageID, err := h.room.manager.callbacks.HandleNewMessage(h.room.key.ConversationID, broadcast)
 	if err != nil {
-		h.logger.Error("error persisting message in database", "error", err)
+		logger.Error("error persisting message in database", "error", err)
 	}
 
 	broadcast.ID = messageID
@@ -110,13 +110,10 @@ func (h *eventHandlers) SendMessageHandler(e Event, c *Client) error {
 //   - the database is updated to reflect the new emoji reaction.
 //   - an event is sent to all room clients to notify them of the emoji reaction.
 func (h *eventHandlers) EmojiReactHandler(e Event, c *Client) error {
-	h.logger = h.logger.With("handler", "EmojiReactHandler")
-
 	var emojiEvent EmojiReactEvent
 	if err := json.Unmarshal(e.Payload, &emojiEvent); err != nil {
 		return fmt.Errorf("bad payload for %v event: %w", EventTypeEmojiReact, err)
 	}
-	h.logger.Debug("emoji", "event", emojiEvent)
 
 	var emojiKey *string
 	if emojiEvent.EmojiKey == "" {
@@ -149,5 +146,15 @@ func (h *eventHandlers) EmojiReactHandler(e Event, c *Client) error {
 	for client := range c.room.clients {
 		client.egress <- outgoingEvent
 	}
+	return nil
+}
+
+func (h *eventHandlers) SendTypingIndication(e Event, c *Client) error {
+	for client := range c.room.clients {
+		if client != c {
+			client.egress <- e
+		}
+	}
+
 	return nil
 }
