@@ -30,7 +30,6 @@ export default function ChatPage() {
     emojiReact,
     messageCount,
     isLoaded: isChatLoaded,
-    isTyping,
     otherParticipantIsTyping,
     handleTypingDetection,
   } = useChat(conversationIdentifier!);
